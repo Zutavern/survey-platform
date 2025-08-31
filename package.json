@@ -4,15 +4,21 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage --watchAll=false",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "deploy": "./scripts/deploy.sh",
+    "deploy:prod": "./scripts/deploy.sh production",
+    "vercel:build": "next build",
+    "vercel:dev": "next dev",
+    "precommit": "npm run lint && npm run test:ci",
+    "postbuild": "echo '✅ Build completed successfully'"
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
