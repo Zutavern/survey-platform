@@ -1,36 +1,185 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Survey System
 
-## Getting Started
+Ein modernes, vollständiges Survey-System entwickelt mit Next.js 15, TypeScript, Prisma, und Shadcn UI.
 
-First, run the development server:
+## 🚀 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Moderne UI**: Dunkelblaue Farbpalette mit Shadcn UI Komponenten
+- **Responsive Design**: Optimiert für alle Geräte
+- **TypeScript**: Vollständige Typsicherheit
+- **Prisma ORM**: Sichere Datenbankoperationen
+- **Next.js 15**: App Router mit Server Components
+- **Tailwind CSS**: Utility-first Styling
+
+## 📋 Umfrage-Features
+
+- ✅ Umfragen erstellen und bearbeiten
+- ✅ Verschiedene Fragetypen (Text, Multiple Choice, Checkbox, Bewertung)
+- ✅ Pflichtfragen markieren
+- ✅ Antworten sammeln und analysieren
+- ✅ Übersichtliche Dashboard-Ansicht
+
+## 🛠️ Technologie-Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Styling**: Tailwind CSS, Shadcn UI, Radix UI
+- **Datenbank**: PostgreSQL mit Prisma ORM
+- **Icons**: Lucide React
+- **State Management**: React Hooks
+
+## 🚀 Installation
+
+1. **Repository klonen**
+   ```bash
+   git clone <repository-url>
+   cd survey
+   ```
+
+2. **Dependencies installieren**
+   ```bash
+   npm install
+   ```
+
+3. **Umgebungsvariablen konfigurieren**
+   ```bash
+   cp .env.example .env.local
+   ```
+   
+   Füge deine Datenbank-URL hinzu:
+   ```env
+   DATABASE_URL="postgresql://username:password@localhost:5432/survey_db"
+   ```
+
+4. **Datenbank einrichten**
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   ```
+
+5. **Entwicklungsserver starten**
+   ```bash
+   npm run dev
+   ```
+
+6. **Anwendung öffnen**
+   Öffne [http://localhost:3000](http://localhost:3000) in deinem Browser.
+
+## 📁 Projektstruktur
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── globals.css        # Globale Styles
+│   ├── layout.tsx         # Root Layout
+│   ├── page.tsx           # Homepage
+│   └── surveys/           # Survey-Routen
+│       ├── create/        # Umfrage erstellen
+│       └── page.tsx       # Survey-Übersicht
+├── components/            # React Komponenten
+│   └── ui/               # Shadcn UI Komponenten
+│       ├── button.tsx
+│       ├── card.tsx
+│       ├── input.tsx
+│       └── ...
+└── lib/                  # Utility-Funktionen
+    ├── prisma.ts         # Prisma Client
+    └── utils.ts          # Allgemeine Utils
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🎨 Design-System
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Das System verwendet eine konsistente dunkelblaue Farbpalette:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Primär**: `#1e3a8a` (Dunkelblau)
+- **Sekundär**: `#dbeafe` (Helles Blau)
+- **Akzent**: `#3b82f6` (Standard Blau)
+- **Hintergrund**: `#f0f9ff` (Sehr helles Blau)
 
-## Learn More
+## 📊 Datenbank-Schema
 
-To learn more about Next.js, take a look at the following resources:
+Das Prisma Schema umfasst:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **User**: Benutzerverwaltung
+- **Survey**: Umfrage-Details
+- **Question**: Fragen mit verschiedenen Typen
+- **Option**: Antwortoptionen für Multiple Choice
+- **Response**: Umfrage-Antworten
+- **Answer**: Einzelne Antworten
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔧 Entwicklung
 
-## Deploy on Vercel
+### Neue Komponenten hinzufügen
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+# Shadcn UI Komponente hinzufügen
+npx shadcn@latest add [component-name]
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Datenbank-Migrationen
+
+```bash
+# Neue Migration erstellen
+npx prisma migrate dev --name [migration-name]
+
+# Migrationen anwenden
+npx prisma migrate deploy
+```
+
+### TypeScript-Typen generieren
+
+```bash
+# Prisma Client neu generieren
+npx prisma generate
+```
+
+## 🚀 Deployment
+
+### Vercel (Empfohlen)
+
+1. Verbinde dein Repository mit Vercel
+2. Setze die Umgebungsvariablen in Vercel
+3. Deploy automatisch bei jedem Push
+
+### Andere Plattformen
+
+```bash
+# Build erstellen
+npm run build
+
+# Produktionsserver starten
+npm start
+```
+
+## 📝 API-Routen
+
+Das System verwendet Next.js 15 App Router mit Route Handlers:
+
+- `POST /api/surveys` - Neue Umfrage erstellen
+- `GET /api/surveys` - Alle Umfragen abrufen
+- `GET /api/surveys/[id]` - Einzelne Umfrage abrufen
+- `PUT /api/surveys/[id]` - Umfrage aktualisieren
+- `DELETE /api/surveys/[id]` - Umfrage löschen
+
+## 🤝 Beitragen
+
+1. Fork das Repository
+2. Erstelle einen Feature-Branch (`git checkout -b feature/amazing-feature`)
+3. Committe deine Änderungen (`git commit -m 'Add amazing feature'`)
+4. Push zum Branch (`git push origin feature/amazing-feature`)
+5. Öffne einen Pull Request
+
+## 📄 Lizenz
+
+Dieses Projekt ist unter der MIT-Lizenz lizenziert.
+
+## 🆘 Support
+
+Bei Fragen oder Problemen:
+
+1. Überprüfe die [Issues](../../issues)
+2. Erstelle ein neues Issue mit detaillierter Beschreibung
+3. Kontaktiere das Entwicklungsteam
+
+---
+
+**Entwickelt mit ❤️ und Next.js 15**
