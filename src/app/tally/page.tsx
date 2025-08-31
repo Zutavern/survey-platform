@@ -26,7 +26,9 @@ import {
   Filter,
   Search,
   MoreHorizontal,
-  LogOut
+  LogOut,
+  Bot,
+  Wand2
 } from "lucide-react";
 import Link from "next/link";
 
@@ -207,10 +209,17 @@ export default function TallyDashboard() {
                 Aktualisieren
               </Button>
               
+              <Link href="/tally/ai-create">
+                <Button className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700">
+                  <Bot className="mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">KI-</span>Generator
+                </Button>
+              </Link>
+
               <Link href="/tally/create">
-                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+                <Button variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50">
                   <Plus className="mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">Neues </span>Formular
+                  <span className="hidden sm:inline">Manuell </span>erstellen
                 </Button>
               </Link>
 
