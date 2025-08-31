@@ -11,12 +11,14 @@
   "env": {
     "TALLY_API_KEY": "@tally-api-key",
     "DATABASE_URL": "@database-url",
+    "OPENAI_API_KEY": "@openai-api-key",
     "NODE_ENV": "production"
   },
   "build": {
     "env": {
       "TALLY_API_KEY": "@tally-api-key",
-      "DATABASE_URL": "@database-url"
+      "DATABASE_URL": "@database-url",
+      "OPENAI_API_KEY": "@openai-api-key"
     }
   },
   "functions": {

@@ -50,6 +50,7 @@ jobs:
         env:
           TALLY_API_KEY: ${{ secrets.TALLY_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           
       - name: 📋 Upload build artifacts
         uses: actions/upload-artifact@v3
@@ -114,6 +115,7 @@ jobs:
         env:
           TALLY_API_KEY: ${{ secrets.TALLY_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           
       - name: 🚀 Deploy to Vercel Preview
         id: deploy-preview
@@ -193,6 +195,7 @@ jobs:
         env:
           TALLY_API_KEY: ${{ secrets.TALLY_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           
       - name: 🚀 Deploy to Vercel Production
         id: deploy-production
