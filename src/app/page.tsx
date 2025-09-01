@@ -17,7 +17,7 @@ export default function HomePage() {
 
         if (response.ok) {
           // User is authenticated, redirect to dashboard
-          router.push('/tally');
+          router.push('/dashboard');
         } else {
           // User is not authenticated, redirect to login
           router.push('/login');

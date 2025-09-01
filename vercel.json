@@ -6,18 +6,16 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
-  "installCommand": "npm ci",
+  "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": ".next",
   "env": {
     "TALLY_API_KEY": "@tally-api-key",
-    "DATABASE_URL": "@database-url",
     "OPENAI_API_KEY": "@openai-api-key",
     "NODE_ENV": "production"
   },
   "build": {
     "env": {
       "TALLY_API_KEY": "@tally-api-key",
-      "DATABASE_URL": "@database-url",
       "OPENAI_API_KEY": "@openai-api-key"
     }
   },
