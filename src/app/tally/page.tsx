@@ -78,7 +78,7 @@ export default function TallyDashboard() {
   };
 
   const filteredForms = forms.filter(form => {
-    const matchesSearch = form.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = form.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          form.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || form.status === statusFilter;
     return matchesSearch && matchesStatus;
