@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { tallyCacheService } from '@/lib/tallyCache'
 
 const TALLY_API_KEY = process.env.TALLY_API_KEY || 'tly-nTdwwmUSXJdfZ7CTdz3SqJHF0BnE5SgE'
 const TALLY_API_BASE = 'https://api.tally.so'
@@ -10,6 +11,14 @@ export async function GET(
   const { id: formId } = await params
   
   try {
+    // Check cache first (2 minute cache for analytics)
+    const cachedAnalytics = tallyCacheService.getAnalytics(formId);
+    if (cachedAnalytics && tallyCacheService.isFresh(`analytics-${formId}`, 2)) {
+      console.log(`📊 Returning cached analytics for form ${formId}`);
+      return NextResponse.json(cachedAnalytics);
+    }
+
+    console.log(`🔄 Fetching fresh analytics for form ${formId}...`);
 
     // Fetch form details
     const formResponse = await fetch(`${TALLY_API_BASE}/forms/${formId}`, {
@@ -19,196 +28,135 @@ export async function GET(
       },
     })
 
-    // Fetch form submissions
-    const submissionsResponse = await fetch(`${TALLY_API_BASE}/forms/${formId}/responses`, {
-      headers: {
-        'Authorization': `Bearer ${TALLY_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!formResponse.ok || !submissionsResponse.ok) {
-      throw new Error('Tally API error')
+    if (!formResponse.ok) {
+      throw new Error(`Tally form API error: ${formResponse.status}`)
     }
 
     const formData = await formResponse.json()
-    const submissionsData = await submissionsResponse.json()
+    
+    // Try to fetch submissions, but continue without them if unauthorized
+    let submissionsData = { items: [] };
+    try {
+      const submissionsResponse = await fetch(`${TALLY_API_BASE}/forms/${formId}/responses`, {
+        headers: {
+          'Authorization': `Bearer ${TALLY_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-    // Calculate analytics
-    const totalViews = formData.viewCount || 0
-    const totalSubmissions = submissionsData.responses?.length || 0
-    const conversionRate = totalViews > 0 ? (totalSubmissions / totalViews) * 100 : 0
+      if (submissionsResponse.ok) {
+        submissionsData = await submissionsResponse.json();
+        console.log(`📊 Fetched ${submissionsData.items?.length || 0} submissions`);
+      } else if (submissionsResponse.status === 401) {
+        console.log(`⚠️  No access to submissions data (401) - continuing with form data only`);
+      } else {
+        console.log(`⚠️  Submissions API error ${submissionsResponse.status} - continuing without submissions`);
+      }
+    } catch (submissionsError) {
+      console.log(`⚠️  Could not fetch submissions:`, submissionsError);
+    }
 
-    // Process submissions for analytics
-    const submissions = submissionsData.responses?.map((response: any) => ({
-      id: response.id,
+    console.log(`✅ Form: ${formData.name || 'Untitled'}, Submissions: ${formData.numberOfSubmissions || 0}`);
+
+    // Calculate analytics based on real Tally data
+    const totalViews = 0; // Tally doesn't provide view count in API
+    const totalSubmissions = formData.numberOfSubmissions || 0
+    const conversionRate = 0; // Can't calculate without view count
+
+    // Process real submissions
+    const submissions = submissionsData.items?.map((response: any) => ({
+      id: response.responseId,
       submittedAt: response.createdAt,
       answers: response.fields?.reduce((acc: any, field: any) => {
         acc[field.key] = field.value
         return acc
       }, {}) || {},
-      completionTime: Math.random() * 5 + 2, // Mock completion time
-      source: 'direct'
+      completionTime: null, // Tally doesn't provide completion time
+      source: 'tally'
     })) || []
 
-    // Calculate average completion time
-    const avgCompletionTime = submissions.length > 0 
-      ? submissions.reduce((sum: number, sub: any) => sum + sub.completionTime, 0) / submissions.length 
-      : 0
+    // Extract questions from form blocks
+    const questionBlocks = formData.blocks?.filter((block: any) => 
+      block.groupType === 'QUESTION' && block.type === 'TITLE'
+    ) || [];
 
-    // Generate question statistics
-    const questionStats = formData.blocks?.filter((block: any) => 
-      ['INPUT_TEXT', 'INPUT_EMAIL', 'MULTIPLE_CHOICE', 'CHECKBOXES', 'DROPDOWN'].includes(block.type)
-    ).map((block: any) => {
-      const responses = submissions.filter((sub: any) => sub.answers[block.id])
-      const responseCount = responses.length
-      const responseRate = totalSubmissions > 0 ? (responseCount / totalSubmissions) * 100 : 0
+    const inputBlocks = formData.blocks?.filter((block: any) => 
+      ['INPUT_TEXT', 'INPUT_EMAIL', 'MULTIPLE_CHOICE', 'CHECKBOXES', 'DROPDOWN', 'LINEAR_SCALE', 'TEXTAREA'].includes(block.type)
+    ) || [];
+
+    // Generate question statistics from real data
+    const questionStats = questionBlocks.map((titleBlock: any, index: number) => {
+      const inputBlock = inputBlocks[index];
+      const questionTitle = titleBlock.payload?.safeHTMLSchema?.[0]?.[0] || 'Question';
+      
+      // Find responses for this question
+      const questionResponses = submissions.filter((sub: any) => sub.answers[titleBlock.uuid] || sub.answers[inputBlock?.uuid]);
+      const responseCount = questionResponses.length;
+      const responseRate = totalSubmissions > 0 ? (responseCount / totalSubmissions) * 100 : 0;
 
       // Calculate answer distribution for choice questions
-      let answers: { [key: string]: number } = {}
-      if (['MULTIPLE_CHOICE', 'CHECKBOXES', 'DROPDOWN'].includes(block.type)) {
-        responses.forEach((sub: any) => {
-          const answer = sub.answers[block.id]
+      let answers: { [key: string]: number } = {};
+      if (inputBlock && ['MULTIPLE_CHOICE', 'CHECKBOXES', 'DROPDOWN'].includes(inputBlock.type)) {
+        questionResponses.forEach((sub: any) => {
+          const answer = sub.answers[titleBlock.uuid] || sub.answers[inputBlock.uuid];
           if (Array.isArray(answer)) {
             answer.forEach((a: string) => {
-              answers[a] = (answers[a] || 0) + 1
-            })
+              answers[a] = (answers[a] || 0) + 1;
+            });
           } else if (answer) {
-            answers[answer] = (answers[answer] || 0) + 1
+            answers[answer] = (answers[answer] || 0) + 1;
           }
-        })
+        });
       }
 
       return {
-        id: block.id,
-        title: block.properties?.title || 'Untitled Question',
-        type: mapTallyBlockType(block.type),
+        id: titleBlock.uuid,
+        title: questionTitle,
+        type: inputBlock ? mapTallyBlockType(inputBlock.type) : 'text',
         responseCount,
         responseRate,
         answers,
-      }
-    }) || []
+      };
+    });
 
     const analytics = {
       id: formId,
-      title: formData.title || 'Untitled Form',
-      status: formData.published ? 'published' : 'draft',
+      title: formData.name || 'Untitled Form',
+      status: formData.status === 'PUBLISHED' ? 'published' : 'draft',
       totalViews,
       totalSubmissions,
       conversionRate,
-      avgCompletionTime,
+      avgCompletionTime: 0, // Not available from Tally
       createdAt: formData.createdAt,
+      updatedAt: formData.updatedAt,
       lastSubmission: submissions.length > 0 ? submissions[submissions.length - 1].submittedAt : null,
       submissions: submissions.slice(-10), // Last 10 submissions
       questionStats,
+      source: 'tally'
     }
+
+    // Cache the analytics
+    tallyCacheService.setAnalytics(formId, analytics);
+    tallyCacheService.setFormData(`analytics-${formId}`, analytics);
 
     return NextResponse.json(analytics)
   } catch (error) {
-    console.error('Error fetching Tally analytics:', error)
+    console.error('❌ Error fetching Tally analytics:', error)
     
-    // Return mock analytics data as fallback
-    const mockAnalytics = {
-      id: formId,
-      title: 'Kunden-Assessment - Ersteinschätzung',
-      status: 'published',
-      totalViews: 147,
-      totalSubmissions: 23,
-      conversionRate: 15.6,
-      avgCompletionTime: 4.2,
-      createdAt: '2024-08-25T10:00:00Z',
-      lastSubmission: '2024-08-31T09:30:00Z',
-      submissions: [
-        {
-          id: '1',
-          submittedAt: '2024-08-31T09:30:00Z',
-          answers: {
-            '1': 'Mustermann GmbH',
-            '2': '11-50 Mitarbeiter',
-            '3': 'IT/Software',
-            '4': 'max@mustermann.de',
-            '5': ['Strategieentwicklung', 'Technologie & Digitalisierung']
-          },
-          completionTime: 3.5,
-          source: 'direct'
-        },
-        {
-          id: '2',
-          submittedAt: '2024-08-31T08:15:00Z',
-          answers: {
-            '1': 'TechCorp AG',
-            '2': '51-250 Mitarbeiter',
-            '3': 'IT/Software',
-            '4': 'info@techcorp.de',
-            '5': ['Prozessoptimierung', 'Personal & Organisation']
-          },
-          completionTime: 4.8,
-          source: 'direct'
-        }
-      ],
-      questionStats: [
-        {
-          id: '1',
-          title: 'Unternehmensname',
-          type: 'text',
-          responseCount: 23,
-          responseRate: 100,
-          answers: {}
-        },
-        {
-          id: '2',
-          title: 'Unternehmensgröße',
-          type: 'radio',
-          responseCount: 23,
-          responseRate: 100,
-          answers: {
-            '1-10 Mitarbeiter': 8,
-            '11-50 Mitarbeiter': 10,
-            '51-250 Mitarbeiter': 4,
-            '251-1000 Mitarbeiter': 1,
-            '1000+ Mitarbeiter': 0
-          }
-        },
-        {
-          id: '3',
-          title: 'Branche',
-          type: 'select',
-          responseCount: 23,
-          responseRate: 100,
-          answers: {
-            'IT/Software': 12,
-            'Beratung': 4,
-            'Produktion': 3,
-            'Handel': 2,
-            'Dienstleistung': 2
-          }
-        },
-        {
-          id: '4',
-          title: 'Kontakt E-Mail',
-          type: 'email',
-          responseCount: 23,
-          responseRate: 100,
-          answers: {}
-        },
-        {
-          id: '5',
-          title: 'Aktueller Hauptbedarf',
-          type: 'checkbox',
-          responseCount: 21,
-          responseRate: 91.3,
-          answers: {
-            'Strategieentwicklung': 15,
-            'Prozessoptimierung': 12,
-            'Technologie & Digitalisierung': 18,
-            'Personal & Organisation': 8,
-            'Finanzen & Controlling': 6
-          }
-        }
-      ]
+    // Try to return stale cached data if available
+    const staleAnalytics = tallyCacheService.getAnalytics(formId);
+    if (staleAnalytics) {
+      console.log(`📋 Returning stale cached analytics for form ${formId} due to API error`);
+      return NextResponse.json(staleAnalytics);
     }
-
-    return NextResponse.json(mockAnalytics)
+    
+    // Return minimal error response - no mock data
+    return NextResponse.json({
+      error: 'Unable to fetch analytics data',
+      message: 'Tally API is currently unavailable and no cached data exists',
+      formId,
+      timestamp: new Date().toISOString()
+    }, { status: 503 })
   }
 }
 

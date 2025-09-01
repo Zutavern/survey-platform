@@ -170,39 +170,55 @@ const TALLY_FORM_SCHEMA = {
   required: ["title", "questions"]
 }
 
-const SYSTEM_PROMPT = `You are an expert form designer specializing in creating professional surveys and assessments using Tally.
-Your task is to generate comprehensive, well-structured forms based on user prompts.
+const SYSTEM_PROMPT = `You are an expert form designer specializing in creating professional surveys and assessments.
+Your task is to generate well-structured forms based on user prompts.
 
-CAPABILITIES:
-- All Tally field types: text, textarea, email, url, phone, number, radio, checkbox, select, multiselect, rating, scale, ranking, date, time, datetime, file_upload, signature, address, payment, legal_consent, section_break, page_break, matrix_radio, matrix_checkbox, slider, image_choice, video_choice, audio_upload, calculation, conditional_logic, hidden
-- Advanced validation rules and constraints
-- Conditional logic and branching
-- Professional styling and theming
-- Payment integration
-- File upload with restrictions
-- Matrix questions for complex data collection
-- Multi-page forms with progress tracking
-- Custom validation messages
-- Email notifications and webhooks
+IMPORTANT: You must return a JSON object with this EXACT structure:
+
+{
+  "title": "Form Title",
+  "description": "Form description", 
+  "questions": [
+    {
+      "id": "q1",
+      "type": "text|textarea|email|phone|radio|checkbox|select|rating|scale|date|file_upload",
+      "title": "Question title",
+      "description": "Optional question description",
+      "required": true|false,
+      "placeholder": "Optional placeholder text",
+      "options": ["Option 1", "Option 2"] // only for radio, checkbox, select
+    }
+  ],
+  "settings": {
+    "allowMultipleSubmissions": false,
+    "showProgressBar": true,
+    "collectEmails": true,
+    "thankYouMessage": "Thank you message"
+  }
+}
+
+SUPPORTED FIELD TYPES:
+- text: Single line text input
+- textarea: Multi-line text input  
+- email: Email address input
+- phone: Phone number input
+- radio: Single choice from options
+- checkbox: Multiple choice from options
+- select: Dropdown selection
+- rating: Star rating (1-5)
+- scale: Numeric scale (1-10)
+- date: Date picker
+- file_upload: File upload
 
 DESIGN PRINCIPLES:
 1. Create logical question flow
-2. Use appropriate field types for data collection
-3. Include validation where necessary
-4. Add helpful descriptions and placeholders
-5. Structure complex forms with sections
-6. Consider user experience and accessibility
-7. Include professional styling options
-8. Add conditional logic for dynamic forms
+2. Use appropriate field types
+3. Add validation where needed
+4. Keep forms user-friendly
+5. Include helpful placeholders
+6. Make important fields required
 
-Generate forms that are:
-- Professional and user-friendly
-- Comprehensive but not overwhelming
-- Properly validated and structured
-- Accessible and mobile-responsive
-- Suitable for the intended use case
-
-Always return valid JSON matching the schema provided.`
+Generate professional, accessible forms that collect the right data efficiently.`
 
 export async function POST(request: NextRequest) {
   try {
@@ -238,7 +254,7 @@ export async function POST(request: NextRequest) {
         },
         {
           role: "user", 
-          content: `Create a professional form based on this prompt: "${prompt}"\n\nGenerate a comprehensive form with appropriate field types, validation, styling, and advanced features. Make it production-ready and user-friendly.`
+          content: `Create a professional form based on this prompt: "${prompt}"\n\nReturn ONLY valid JSON in the exact format specified. Include appropriate questions with correct field types, validation, and professional styling.`
         }
       ],
       response_format: { type: "json_object" },
@@ -266,7 +282,8 @@ export async function POST(request: NextRequest) {
     // Validate and enhance the generated form
     const enhancedForm = {
       id: `ai-form-${Date.now()}`,
-      ...formData,
+      title: formData.title || 'AI Generated Form',
+      description: formData.description || 'Automatically generated form',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       status: 'draft',
@@ -290,12 +307,25 @@ export async function POST(request: NextRequest) {
         ...formData.settings
       },
       
-      // Add IDs to questions if missing
-      questions: formData.questions?.map((question: any, index: number) => ({
+      // Process and validate questions
+      questions: (formData.questions || []).map((question: any, index: number) => ({
         id: question.id || `q${index + 1}`,
+        type: question.type || 'text',
+        title: question.title || `Question ${index + 1}`,
+        description: question.description || '',
+        required: question.required || false,
+        placeholder: question.placeholder || '',
+        options: question.options || [],
         order: index + 1,
-        ...question
-      })) || []
+        // Add validation if present
+        ...(question.validation && { validation: question.validation }),
+        ...(question.ratingScale && { ratingScale: question.ratingScale }),
+        ...(question.fileUpload && { fileUpload: question.fileUpload }),
+        ...(question.dateTime && { dateTime: question.dateTime }),
+        ...(question.matrix && { matrix: question.matrix }),
+        ...(question.conditionalLogic && { conditionalLogic: question.conditionalLogic }),
+        ...(question.payment && { payment: question.payment })
+      }))
     }
 
     // Return the generated form
