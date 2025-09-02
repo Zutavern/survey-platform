@@ -1,11 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tallyCacheService } from '@/lib/tallyCache'
+import { env } from '@/lib/env'
+import { mockStorage } from '@/lib/mockStorage'
+import { prisma } from '@/lib/prisma'
+import { decrypt, Encrypted } from '@/lib/crypto'
+import { cookies } from 'next/headers'
 
-const TALLY_API_KEY = process.env.TALLY_API_KEY || 'tly-nTdwwmUSXJdfZ7CTdz3SqJHF0BnE5SgE'
+// Base URL stays constant
 const TALLY_API_BASE = 'https://api.tally.so'
+
+/**
+ * Resolve the Tally API key for the current request:
+ * 1. If authenticated (simple cookie check), look for encrypted key in DB and decrypt.
+ * 2. Fallback to environment variable TALLY_API_KEY.
+ */
+async function resolveTallyApiKey(): Promise<string | undefined> {
+  try {
+    const authCookie = cookies().get('auth-token')
+    if (authCookie?.value === 'authenticated') {
+      // Simplified auth: hard-coded admin user
+      const cred = await prisma.apiCredential.findUnique({
+        where: { userEmail: 'admin@admin.com' },
+        select: { tallyCipher: true, tallyIv: true, tallyTag: true }
+      })
+      if (cred?.tallyCipher && cred.tallyIv && cred.tallyTag) {
+        try {
+          return decrypt({
+            cipher: cred.tallyCipher,
+            iv: cred.tallyIv,
+            tag: cred.tallyTag
+          } as Encrypted)
+        } catch (e) {
+          console.error('Failed to decrypt stored Tally API key:', e)
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error resolving per-user Tally API key:', err)
+  }
+  // Fallback to env
+  return env.TALLY_API_KEY
+}
 
 export async function GET() {
   try {
+    const apiKey = await resolveTallyApiKey()
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'No Tally API key configured for user or server' },
+        { status: 500 }
+      )
+    }
+
     // Check cache first (5 minute cache)
     const cachedForms = tallyCacheService.getAllCachedForms();
     const hasRecentCache = cachedForms.length > 0 && tallyCacheService.isFresh('forms-list', 5);
@@ -21,7 +67,7 @@ export async function GET() {
     const response = await fetch(`${TALLY_API_BASE}/forms`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${TALLY_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
     })
@@ -40,7 +86,7 @@ export async function GET() {
         try {
           const detailResponse = await fetch(`${TALLY_API_BASE}/forms/${form.id}`, {
             headers: {
-              'Authorization': `Bearer ${TALLY_API_KEY}`,
+              'Authorization': `Bearer ${apiKey}`,
               'Content-Type': 'application/json',
             },
           });
@@ -121,6 +167,14 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+
+    const apiKey = await resolveTallyApiKey()
+    if (!apiKey) {
+      return NextResponse.json(
+        { success: false, error: 'No Tally API key configured for user or server' },
+        { status: 500 }
+      )
+    }
     
     // Try real Tally API first
     const formData = {
@@ -190,7 +244,7 @@ export async function POST(request: NextRequest) {
       const response = await fetch(`${TALLY_API_BASE}/forms`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${TALLY_API_KEY}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(formData),

@@ -16,15 +16,22 @@ import {
   FileText,
   Eye,
   Edit,
-  Trash2
+  Trash2,
+  CheckSquare,
+  Square,
+  UserPlus,
+  MessageSquare
 } from 'lucide-react'
 import Link from 'next/link'
+import { Layout } from '@/components/layout/Layout'
 import { Customer } from '@/lib/types/customer'
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([])
+  const [showBulkActions, setShowBulkActions] = useState(false)
 
   useEffect(() => {
     fetchCustomers()
@@ -51,6 +58,75 @@ export default function CustomersPage() {
     customer.primaryContact?.lastName?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  const handleSelectCustomer = (customerId: string) => {
+    setSelectedCustomers(prev => 
+      prev.includes(customerId) 
+        ? prev.filter(id => id !== customerId)
+        : [...prev, customerId]
+    )
+  }
+
+  const handleSelectAll = () => {
+    if (selectedCustomers.length === filteredCustomers.length) {
+      setSelectedCustomers([])
+    } else {
+      setSelectedCustomers(filteredCustomers.map(c => c.id))
+    }
+  }
+
+  const handleBulkAction = async (action: string) => {
+    if (selectedCustomers.length === 0) return
+    
+    try {
+      const promises = selectedCustomers.map(customerId => {
+        switch (action) {
+          case 'activate':
+            return fetch(`/api/customers/${customerId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'active' }),
+            })
+          case 'deactivate':
+            return fetch(`/api/customers/${customerId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'inactive' }),
+            })
+          case 'delete':
+            return fetch(`/api/customers/${customerId}`, {
+              method: 'DELETE',
+            })
+          default:
+            return Promise.resolve()
+        }
+      })
+
+      await Promise.all(promises)
+      fetchCustomers()
+      setSelectedCustomers([])
+      setShowBulkActions(false)
+    } catch (error) {
+      console.error('Bulk action failed:', error)
+    }
+  }
+
+  // ---- single-item delete ----
+  const handleDeleteCustomer = async (customerId: string) => {
+    if (!confirm('Kunde wirklich löschen?')) return
+    try {
+      const resp = await fetch(`/api/customers/${customerId}`, { method: 'DELETE' })
+      if (resp.ok) {
+        // refresh list & clear selection
+        fetchCustomers()
+        setSelectedCustomers(prev => prev.filter(id => id !== customerId))
+      } else {
+        console.error('Delete failed', await resp.text())
+      }
+    } catch (err) {
+      console.error('Delete request error:', err)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
@@ -63,7 +139,8 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <Layout>
+    <div className="min-h-screen">
       {/* Header */}
       <div className="bg-white/70 backdrop-blur-sm border-b border-slate-200/50 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -99,7 +176,84 @@ export default function CustomersPage() {
                 className="pl-10"
               />
             </div>
+            {filteredCustomers.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={handleSelectAll}
+                className="flex items-center gap-2"
+              >
+                {selectedCustomers.length === filteredCustomers.length 
+                  ? <CheckSquare className="w-4 h-4" />
+                  : <Square className="w-4 h-4" />
+                }
+                {selectedCustomers.length > 0 ? `${selectedCustomers.length} ausgewählt` : 'Alle auswählen'}
+              </Button>
+            )}
           </div>
+
+          {/* Bulk Actions Bar */}
+          {selectedCustomers.length > 0 && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-blue-900 font-medium">
+                    {selectedCustomers.length} Kunde{selectedCustomers.length !== 1 ? 'n' : ''} ausgewählt
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleBulkAction('activate')}
+                    className="flex items-center gap-2"
+                  >
+                    <UserPlus className="w-3 h-3" />
+                    Aktivieren
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleBulkAction('deactivate')}
+                    className="flex items-center gap-2"
+                  >
+                    <Users className="w-3 h-3" />
+                    Deaktivieren
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowBulkActions(!showBulkActions)}
+                    className="flex items-center gap-2"
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    Mehr Aktionen
+                  </Button>
+                  {showBulkActions && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm(`${selectedCustomers.length} Kunden wirklich löschen?`)) {
+                          handleBulkAction('delete')
+                        }
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Löschen
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedCustomers([])}
+                  >
+                    Abbrechen
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Quick Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -170,16 +324,27 @@ export default function CustomersPage() {
         {/* Customer List */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredCustomers.map((customer) => (
-            <Card key={customer.id} className="bg-white/60 backdrop-blur-sm border-slate-200/50 hover:shadow-lg transition-all duration-200">
+            <Card key={customer.id} className={`bg-white/60 backdrop-blur-sm border-slate-200/50 hover:shadow-lg transition-all duration-200 ${selectedCustomers.includes(customer.id) ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`}>
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
-                  <div>
+                  <div className="flex items-start gap-3">
+                    <button
+                      onClick={() => handleSelectCustomer(customer.id)}
+                      className="mt-1"
+                    >
+                      {selectedCustomers.includes(customer.id) 
+                        ? <CheckSquare className="w-4 h-4 text-blue-600" />
+                        : <Square className="w-4 h-4 text-slate-400 hover:text-slate-600" />
+                      }
+                    </button>
+                    <div>
                     <CardTitle className="text-lg font-semibold text-slate-900 mb-1">
                       {customer.companyName}
                     </CardTitle>
                     <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
                       <MapPin className="w-3 h-3" />
                       {customer.postalCode} {customer.city}
+                    </div>
                     </div>
                   </div>
                   <Badge variant={customer.status === 'active' ? 'default' : 'secondary'}>
@@ -235,7 +400,12 @@ export default function CustomersPage() {
                       <Edit className="w-3 h-3" />
                     </Button>
                   </Link>
-                  <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteCustomer(customer.id)}
+                    className="text-red-600 hover:text-red-700"
+                  >
                     <Trash2 className="w-3 h-3" />
                   </Button>
                 </div>
@@ -269,5 +439,6 @@ export default function CustomersPage() {
         )}
       </div>
     </div>
+    </Layout>
   )
 }

@@ -169,6 +169,24 @@ export default function CustomerDetailPage() {
     }
   }
 
+  // Delete current customer
+  const handleDeleteCustomer = async () => {
+    if (!confirm('Kunde wirklich löschen?')) return
+    try {
+      const resp = await fetch(`/api/customers/${customerId}`, {
+        method: 'DELETE',
+      })
+      if (resp.ok) {
+        router.push('/customers')
+      } else {
+        // optional: show error message
+        console.error('Delete failed', await resp.text())
+      }
+    } catch (err) {
+      console.error('Delete request error:', err)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
@@ -215,9 +233,32 @@ export default function CustomerDetailPage() {
                 {customer.street}, {customer.postalCode} {customer.city}
               </p>
             </div>
-            <Badge variant={customer.status === 'active' ? 'default' : 'secondary'}>
-              {customer.status === 'active' ? 'Aktiv' : 'Inaktiv'}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Link href={`/customers/${customerId}/surveys`}>
+                <Button variant="outline" size="sm">
+                  <Eye className="w-4 h-4 mr-2" />
+                  Umfrage-Analysen
+                </Button>
+              </Link>
+              {/* Edit customer */}
+              <Link href={`/customers/${customerId}/edit`}>
+                <Button variant="outline" size="sm">
+                  <Edit className="w-4 h-4" />
+                </Button>
+              </Link>
+              {/* Delete customer */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDeleteCustomer}
+                className="text-red-600 hover:text-red-700"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+              <Badge variant={customer.status === 'active' ? 'default' : 'secondary'}>
+                {customer.status === 'active' ? 'Aktiv' : 'Inaktiv'}
+              </Badge>
+            </div>
           </div>
         </div>
       </div>
