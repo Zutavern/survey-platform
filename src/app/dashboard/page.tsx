@@ -1,13 +1,73 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Building2, FileText, Users, TrendingUp, Plus, Eye } from 'lucide-react'
+import { Building2, FileText, Users, TrendingUp, Plus, Eye, Mail } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
+import { Layout } from '@/components/layout/Layout'
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState({
+    totalCustomers: 0,
+    activeCustomers: 0,
+    totalForms: 0,
+    assignedSurveys: 0,
+    totalContacts: 0,
+    recentActivity: []
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchDashboardStats()
+  }, [])
+
+  const fetchDashboardStats = async () => {
+    try {
+      const [customersResponse, formsResponse] = await Promise.all([
+        fetch('/api/customers'),
+        fetch('/api/tally/forms')
+      ])
+
+      const [customers, forms] = await Promise.all([
+        customersResponse.ok ? customersResponse.json() : [],
+        formsResponse.ok ? formsResponse.json() : { forms: [] }
+      ])
+
+      if (Array.isArray(customers)) {
+        const assignedSurveysCount = customers.reduce((sum, customer) => 
+          sum + (customer.assignedSurveys?.length || 0), 0
+        )
+
+        // Normalize forms response: supports array or `{ forms: [...] }`
+        const formsCount = Array.isArray(forms)
+          ? forms.length
+          : (forms.forms?.length || 0)
+
+        const totalContactsCount = customers.reduce((sum, customer) => 
+          sum + (customer.additionalContacts?.length || 0) + 1, 0
+        )
+
+        setStats({
+          totalCustomers: customers.length,
+          activeCustomers: customers.filter(c => c.status === 'active').length,
+          totalForms: formsCount,
+          assignedSurveys: assignedSurveysCount,
+          totalContacts: totalContactsCount,
+          recentActivity: customers.slice(0, 3)
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <Layout>
+      <div className="min-h-screen">
       {/* Header */}
       <div className="bg-white/70 backdrop-blur-sm border-b border-slate-200/50 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-6">
@@ -105,8 +165,13 @@ export default function DashboardPage() {
                     <Building2 className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-slate-600">Kunden</p>
-                    <p className="text-2xl font-bold text-slate-900">-</p>
+                    <p className="text-sm text-slate-600">Gesamt Kunden</p>
+                    <p className="text-2xl font-bold text-slate-900">
+                      {loading ? '...' : stats.totalCustomers}
+                    </p>
+                    <p className="text-xs text-green-600">
+                      {loading ? '...' : stats.activeCustomers} aktiv
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -120,7 +185,10 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <p className="text-sm text-slate-600">Formulare</p>
-                    <p className="text-2xl font-bold text-slate-900">-</p>
+                    <p className="text-2xl font-bold text-slate-900">
+                      {loading ? '...' : stats.totalForms}
+                    </p>
+                    <p className="text-xs text-slate-500">Tally Vorlagen</p>
                   </div>
                 </div>
               </CardContent>
@@ -134,7 +202,10 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <p className="text-sm text-slate-600">Zugewiesene Umfragen</p>
-                    <p className="text-2xl font-bold text-slate-900">-</p>
+                    <p className="text-2xl font-bold text-slate-900">
+                      {loading ? '...' : stats.assignedSurveys}
+                    </p>
+                    <p className="text-xs text-slate-500">Individuelle Kopien</p>
                   </div>
                 </div>
               </CardContent>
@@ -144,17 +215,48 @@ export default function DashboardPage() {
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-orange-100 rounded-lg">
-                    <TrendingUp className="w-5 h-5 text-orange-600" />
+                    <Mail className="w-5 h-5 text-orange-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-slate-600">Antworten</p>
-                    <p className="text-2xl font-bold text-slate-900">-</p>
+                    <p className="text-sm text-slate-600">Kontakte</p>
+                    <p className="text-2xl font-bold text-slate-900">
+                      {loading ? '...' : stats.totalContacts}
+                    </p>
+                    <p className="text-xs text-slate-500">Ansprechpartner</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
         </div>
+
+        {/* Recent Activity */}
+        {stats.recentActivity.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">Letzte Aktivitäten</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {stats.recentActivity.map((customer: any) => (
+                <Card key={customer.id} className="bg-white/60 backdrop-blur-sm border-slate-200/50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium text-slate-900">{customer.companyName}</h3>
+                      <Badge variant={customer.status === 'active' ? 'default' : 'secondary'}>
+                        {customer.status === 'active' ? 'Aktiv' : 'Inaktiv'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-slate-600 mb-2">
+                      {customer.primaryContact?.firstName} {customer.primaryContact?.lastName}
+                    </p>
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span>{customer.assignedSurveys?.length || 0} Umfragen</span>
+                      <span>{new Date(customer.updatedAt).toLocaleDateString('de-DE')}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Quick Actions */}
         <div>
@@ -210,6 +312,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </Layout>
   )
 }

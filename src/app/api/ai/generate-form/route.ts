@@ -1,9 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { prisma } from '@/lib/prisma'
+import { decrypt, Encrypted } from '@/lib/crypto'
+import { cookies } from 'next/headers'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
+
+/**
+ * Resolve the OpenAI API key for the current request
+ * 1. If a key is provided directly, use it
+ * 2. Otherwise, if user is authenticated (simple cookie check), load and decrypt
+ *    the user-specific key from the database
+ * 3. Fallback to the server-level environment variable
+ */
+async function resolveOpenAIApiKey(
+  provided?: string
+): Promise<string | undefined> {
+  if (provided) return provided
+
+  try {
+    // `cookies()` must be awaited in Next.js 15+
+    const cookieStore = await cookies()
+    const authCookie  = cookieStore.get('auth-token')
+    if (authCookie?.value === 'authenticated') {
+      // simplified single admin user
+      const cred = await prisma.apiCredential.findUnique({
+        where: { userEmail: 'admin@admin.com' },
+        select: { openaiCipher: true, openaiIv: true, openaiTag: true },
+      })
+
+      if (cred?.openaiCipher && cred.openaiIv && cred.openaiTag) {
+        try {
+          return decrypt({
+            cipher: cred.openaiCipher,
+            iv: cred.openaiIv,
+            tag: cred.openaiTag,
+          } as Encrypted)
+        } catch (e) {
+          console.error('Failed to decrypt stored OpenAI API key:', e)
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error resolving per-user OpenAI API key:', err)
+  }
+
+  return process.env.OPENAI_API_KEY
+}
 
 // Comprehensive Tally form schema with all possible field types
 const TALLY_FORM_SCHEMA = {
@@ -232,7 +277,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use provided API key or fall back to environment variable
-    const openaiKey = apiKey || process.env.OPENAI_API_KEY
+    const openaiKey = await resolveOpenAIApiKey(apiKey)
     
     if (!openaiKey) {
       return NextResponse.json(

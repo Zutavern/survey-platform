@@ -37,7 +37,7 @@ jobs:
         continue-on-error: true
         
       - name: 🧪 Run tests
-        run: npm run test --if-present
+        run: npm run test:ci --if-present
         env:
           CI: true
           

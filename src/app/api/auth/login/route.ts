@@ -1,38 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const ADMIN_CREDENTIALS = {
-  email: 'admin@admin.com',
-  password: 'admin123'
-}
+import { prisma } from '@/lib/prisma'
+import { verifyPassword, signSession, setSessionCookie } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json()
 
-    // Simple credential validation
-    if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
-      // Create response with success
-      const response = NextResponse.json({ 
-        success: true, 
-        message: 'Login successful',
-        user: { email: ADMIN_CREDENTIALS.email, role: 'admin' }
-      })
+    // Look up user in DB
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, role: true, passwordHash: true }
+    })
 
-      // Set a simple session cookie
-      response.cookies.set('auth-token', 'authenticated', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7 // 7 days
-      })
-
-      return response
-    } else {
+    if (!user) {
       return NextResponse.json(
         { success: false, message: 'Ungültige Anmeldedaten' },
         { status: 401 }
       )
     }
+
+    // Verify password
+    const isValid = await verifyPassword(password, user.passwordHash)
+    if (!isValid) {
+      return NextResponse.json(
+        { success: false, message: 'Ungültige Anmeldedaten' },
+        { status: 401 }
+      )
+    }
+
+    // Sign JWT session
+    const token = await signSession({
+      sub: user.id,
+      email: user.email,
+      role: user.role as 'ADMIN' | 'USER'
+    })
+
+    // Prepare successful response
+    const response = NextResponse.json({
+      success: true,
+      message: 'Login successful',
+      user: { email: user.email, role: user.role }
+    })
+
+    // Set JWT cookie
+    setSessionCookie(response, token)
+
+    // Clear legacy cookie if present
+    response.cookies.set('auth-token', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/'
+    })
+
+    return response
   } catch (error) {
     console.error('Login error:', error)
     return NextResponse.json(

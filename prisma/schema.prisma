@@ -9,14 +9,16 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
+  passwordHash String
+  role       Role     @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -95,4 +97,110 @@ enum QuestionType {
   MULTIPLE_CHOICE
   CHECKBOX
   RATING
+}
+
+// -------------------------------------------------
+// User & Auth related enums
+// -------------------------------------------------
+
+enum Role {
+  ADMIN
+  USER
+}
+
+// Customer Management Models
+model Customer {
+  id               String   @id @default(cuid())
+  companyName      String
+  street           String
+  postalCode       String
+  city             String
+  status           CustomerStatus @default(ACTIVE)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  // Primary Contact
+  primaryContactFirstName String
+  primaryContactLastName  String
+  primaryContactRole      String?
+  primaryContactEmail     String
+  primaryContactPhone     String?
+  
+  // Relations
+  additionalContacts      ContactPerson[]
+  assignedSurveys        CustomerSurvey[]
+}
+
+model ContactPerson {
+  id         String  @id @default(cuid())
+  firstName  String
+  lastName   String
+  role       String?
+  department String?
+  email      String
+  phone      String?
+  isActive   Boolean @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Relations
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model CustomerSurvey {
+  id           String   @id @default(cuid())
+  templateId   String   // Original Tally form ID
+  tallyFormId  String?  // Individual copy form ID
+  title        String
+  description  String?
+  status       SurveyStatus @default(ACTIVE)
+  assignedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relations
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedTo   SurveyAssignment[]
+}
+
+model SurveyAssignment {
+  id               String @id @default(cuid())
+  contactPersonId  String
+  
+  // Relations
+  customerSurveyId String
+  customerSurvey   CustomerSurvey @relation(fields: [customerSurveyId], references: [id], onDelete: Cascade)
+  
+  @@unique([customerSurveyId, contactPersonId])
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SurveyStatus {
+  ACTIVE
+  INACTIVE
+  COMPLETED
+}
+
+// API Credentials per user (encrypted)
+model ApiCredential {
+  id           String   @id @default(cuid())
+  userEmail    String   @unique
+
+  // Encrypted Tally API key components
+  tallyCipher  String?
+  tallyIv      String?
+  tallyTag     String?
+
+  // Encrypted OpenAI API key components
+  openaiCipher String?
+  openaiIv     String?
+  openaiTag    String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

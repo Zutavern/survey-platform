@@ -18,7 +18,9 @@
     "vercel:build": "next build",
     "vercel:dev": "next dev",
     "precommit": "npm run lint && npm run test:ci",
-    "postbuild": "echo '✅ Build completed successfully'"
+    "postbuild": "echo '✅ Build completed successfully'",
+    "prepare": "husky install",
+    "seed": "node prisma/seed.js"
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
@@ -32,14 +34,18 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "context7": "^1.0.3",
+    "husky": "^9.1.7",
     "lucide-react": "^0.542.0",
     "next": "15.5.2",
     "openai": "^5.16.0",
+    "bcryptjs": "^2.4.3",
     "prisma": "^6.15.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "jose": "^5.2.0",
     "tailwind-merge": "^3.3.1",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^4.1.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
