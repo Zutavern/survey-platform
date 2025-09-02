@@ -14,7 +14,9 @@ const TALLY_API_BASE = 'https://api.tally.so'
  */
 async function resolveTallyApiKey(): Promise<string | undefined> {
   try {
-    const authCookie = cookies().get('auth-token')
+    // `cookies()` became async in Next 15, therefore await it before accessing
+    const cookieStore = await cookies()
+    const authCookie  = cookieStore.get('auth-token')
     if (authCookie?.value === 'authenticated') {
       // Simplified: single admin user
       const cred = await prisma.apiCredential.findUnique({

@@ -16,7 +16,9 @@ const TALLY_API_BASE = 'https://api.tally.so'
  */
 async function resolveTallyApiKey(): Promise<string | undefined> {
   try {
-    const authCookie = cookies().get('auth-token')
+    // `cookies()` must be awaited in Next.js 15+
+    const cookieStore = await cookies()
+    const authCookie = cookieStore.get('auth-token')
     if (authCookie?.value === 'authenticated') {
       // Simplified auth: hard-coded admin user
       const cred = await prisma.apiCredential.findUnique({

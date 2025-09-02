@@ -21,7 +21,9 @@ async function resolveOpenAIApiKey(
   if (provided) return provided
 
   try {
-    const authCookie = cookies().get('auth-token')
+    // `cookies()` must be awaited in Next.js 15+
+    const cookieStore = await cookies()
+    const authCookie  = cookieStore.get('auth-token')
     if (authCookie?.value === 'authenticated') {
       // simplified single admin user
       const cred = await prisma.apiCredential.findUnique({
