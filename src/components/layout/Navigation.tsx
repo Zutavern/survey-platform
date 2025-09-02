@@ -77,6 +77,11 @@ const navigationItems = [
         title: 'API-Schlüssel',
         href: '/settings/api-keys',
         icon: Settings
+      },
+      {
+        title: 'Benutzer',
+        href: '/settings/users',
+        icon: Users
       }
     ]
   }
