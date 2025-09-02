@@ -20,6 +20,8 @@
     "precommit": "npm run lint && npm run test:ci",
     "postbuild": "echo '✅ Build completed successfully'",
     "prepare": "husky install",
+    "migrate:deploy": "prisma migrate deploy",
+    "vercel-build": "prisma generate && prisma migrate deploy && next build",
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
