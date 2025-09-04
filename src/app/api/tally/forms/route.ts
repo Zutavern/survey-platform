@@ -277,6 +277,41 @@ export async function POST(request: NextRequest) {
       if (response.ok) {
         const data = JSON.parse(responseText)
         console.log('✅ Form successfully created in Tally!')
+
+        // Persist definition + fields
+        try {
+          const createdDef = await prisma.formDefinition.create({
+            data: {
+              sourceId: data.id,
+              title: data.title ?? body.title ?? 'Untitled Form',
+              description: data.description ?? body.description ?? '',
+              status: 'published',
+            },
+          })
+
+          const toKey = (s: string, idx: number) =>
+            (s || `field_${idx + 1}`)
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '_')
+              .replace(/^_|_$/g, '') || `field_${idx + 1}`
+
+          const fields = (body.questions || []).map((q: any, idx: number) => ({
+            formId: createdDef.id,
+            key: toKey(q.title, idx),
+            label: q.title ?? `Frage ${idx + 1}`,
+            type: q.type ?? 'text',
+            required: Boolean(q.required),
+            order: typeof q.order === 'number' ? q.order : idx + 1,
+            options: q.options ? q.options : undefined,
+          }))
+
+          if (fields.length > 0) {
+            await prisma.formField.createMany({ data: fields, skipDuplicates: true })
+          }
+        } catch (persistErr) {
+          console.error('Failed to persist form definition/fields:', persistErr)
+        }
+
         // Invalidate cache so next GET returns fresh list including the new form
         tallyCacheService.clearAll()
         return NextResponse.json({
@@ -315,6 +350,41 @@ export async function POST(request: NextRequest) {
 
     // Save to mock storage
     const savedForm = mockStorage.saveForm(newForm)
+
+    // Persist definition + fields in DB as draft
+    try {
+      const createdDef = await prisma.formDefinition.create({
+        data: {
+          sourceId: null,
+          title: savedForm.title,
+          description: savedForm.description ?? '',
+          status: savedForm.status ?? 'draft',
+        },
+      })
+
+      const toKey = (s: string, idx: number) =>
+        (s || `field_${idx + 1}`)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '_')
+          .replace(/^_|_$/g, '') || `field_${idx + 1}`
+
+      const fields = (savedForm.questions || []).map((q: any, idx: number) => ({
+        formId: createdDef.id,
+        key: toKey(q.title, idx),
+        label: q.title ?? `Frage ${idx + 1}`,
+        type: q.type ?? 'text',
+        required: Boolean(q.required),
+        order: typeof q.order === 'number' ? q.order : idx + 1,
+        options: q.options ? q.options : undefined,
+      }))
+
+      if (fields.length > 0) {
+        await prisma.formField.createMany({ data: fields, skipDuplicates: true })
+      }
+    } catch (persistErr) {
+      console.error('Failed to persist local form definition/fields:', persistErr)
+    }
+
     // Invalidate cache to include the newly saved local form in subsequent GET
     tallyCacheService.clearAll()
 
