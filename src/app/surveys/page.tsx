@@ -1,10 +1,56 @@
+'use client'
+
+import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Eye, Edit, BarChart3, Calendar, Users, FileText } from "lucide-react"
+import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
+import { Plus, Eye, Edit, BarChart3, Calendar, Users, FileText, Trash2 } from "lucide-react"
 import Link from "next/link"
 
+type Survey = {
+  id: number
+  title: string
+  description: string
+  status: 'active' | 'inactive'
+  responses: number
+  createdAt: string
+}
+
 export default function SurveysPage() {
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean
+    survey?: Survey
+    isLoading: boolean
+  }>({ open: false, isLoading: false })
+
+  const openDeleteDialog = (survey: Survey) => {
+    setDeleteDialog({
+      open: true,
+      survey,
+      isLoading: false
+    })
+  }
+
+  const handleDeleteSurvey = async () => {
+    if (!deleteDialog.survey) return
+    
+    setDeleteDialog(prev => ({ ...prev, isLoading: true }))
+    
+    try {
+      // Here you would make the actual API call
+      console.log(`Deleting survey ${deleteDialog.survey.id}`)
+      // await fetch(`/api/surveys/${deleteDialog.survey.id}`, { method: 'DELETE' })
+      
+      // For now, just close the dialog
+      setDeleteDialog({ open: false, isLoading: false })
+    } catch (err) {
+      console.error('Delete request error:', err)
+    } finally {
+      setDeleteDialog(prev => ({ ...prev, isLoading: false }))
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
       <div className="container mx-auto px-4">
@@ -73,6 +119,18 @@ export default function SurveysPage() {
                       </Button>
                     </Link>
                   </div>
+                  
+                  <div className="flex justify-end mt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openDeleteDialog(survey)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      Löschen
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -96,6 +154,17 @@ export default function SurveysPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <DeleteConfirmationDialog
+          open={deleteDialog.open}
+          onOpenChange={(open) => setDeleteDialog(prev => ({ ...prev, open }))}
+          onConfirm={handleDeleteSurvey}
+          isLoading={deleteDialog.isLoading}
+          title="Umfrage löschen"
+          description="Sind Sie sicher, dass Sie diese Umfrage löschen möchten? Alle gesammelten Antworten und Daten werden dauerhaft entfernt."
+          itemName={deleteDialog.survey?.title}
+        />
       </div>
     </div>
   )

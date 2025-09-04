@@ -24,29 +24,45 @@ npm run lint
 
 ## Database Management
 
-The project uses PostgreSQL with Prisma ORM:
+The project uses **Neon (Serverless PostgreSQL)** with Prisma ORM for both development and production:
 
+### Development with Neon
 ```bash
+# Setup development database (see NEON_SETUP.md)
+cp .env.local.example .env.local
+# Add your Neon development database URL
+
 # Generate Prisma client after schema changes
 npx prisma generate
 
-# Push schema changes to database (development)
+# Push schema changes to Neon development database
 npx prisma db push
 
-# Create and apply migrations (production)
-npx prisma migrate dev --name [migration-name]
-npx prisma migrate deploy
+# Create test users
+node scripts/create-test-users.js
 
 # Open Prisma Studio (database GUI)
 npx prisma studio
 ```
+
+### Production Migrations
+```bash
+# Create and apply migrations
+npx prisma migrate dev --name [migration-name]
+npx prisma migrate deploy
+
+# Production deployment uses Neon main branch automatically
+# via Vercel environment variables
+```
+
+For detailed Neon setup instructions, see `NEON_SETUP.md`.
 
 ## Architecture
 
 ### Tech Stack
 - **Frontend**: Next.js 15 App Router, React 19, TypeScript
 - **Styling**: Tailwind CSS v4, Shadcn UI, Radix UI primitives
-- **Database**: PostgreSQL with Prisma ORM
+- **Database**: Neon (Serverless PostgreSQL) with Prisma ORM
 - **Icons**: Lucide React
 
 ### Project Structure
@@ -89,10 +105,26 @@ npx shadcn@latest add [component-name]
 
 ## Environment Setup
 
-Required environment variables:
-```env
-DATABASE_URL="postgresql://username:password@localhost:5432/survey_db"
+### Development Environment
+```bash
+# Copy development environment template
+cp .env.local.example .env.local
+
+# Configure with your Neon development database
+DATABASE_URL="postgresql://username:password@ep-dev-branch-xyz.neon.tech/neondb?sslmode=require"
+DIRECT_URL="postgresql://username:password@ep-dev-branch-xyz.neon.tech/neondb?sslmode=require"
+JWT_SECRET="development-jwt-secret"
+ENCRYPTION_KEY="dev-encryption-key-32-chars!!"
 ```
+
+### Production Environment (Vercel)
+Set these environment variables in Vercel:
+- `@neon-database-url` - Neon production database URL
+- `@neon-direct-url` - Neon direct connection URL  
+- `@jwt-secret` - Production JWT secret
+- `@encryption-key` - Production encryption key
+
+See `NEON_SETUP.md` for detailed configuration instructions.
 
 ## API Routes Structure
 

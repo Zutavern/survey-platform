@@ -25,6 +25,7 @@ import {
 import Link from 'next/link'
 import { Layout } from '@/components/layout/Layout'
 import { Customer } from '@/lib/types/customer'
+import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -32,6 +33,15 @@ export default function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([])
   const [showBulkActions, setShowBulkActions] = useState(false)
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean
+    customer?: Customer
+    isLoading: boolean
+  }>({ open: false, isLoading: false })
+  const [bulkDeleteDialog, setBulkDeleteDialog] = useState<{
+    open: boolean
+    isLoading: boolean
+  }>({ open: false, isLoading: false })
 
   useEffect(() => {
     fetchCustomers()
@@ -111,19 +121,60 @@ export default function CustomersPage() {
   }
 
   // ---- single-item delete ----
-  const handleDeleteCustomer = async (customerId: string) => {
-    if (!confirm('Kunde wirklich löschen?')) return
+  const openDeleteDialog = (customer: Customer) => {
+    setDeleteDialog({
+      open: true,
+      customer,
+      isLoading: false
+    })
+  }
+
+  const handleDeleteCustomer = async () => {
+    if (!deleteDialog.customer) return
+    
+    setDeleteDialog(prev => ({ ...prev, isLoading: true }))
+    
     try {
-      const resp = await fetch(`/api/customers/${customerId}`, { method: 'DELETE' })
+      const resp = await fetch(`/api/customers/${deleteDialog.customer.id}`, { method: 'DELETE' })
       if (resp.ok) {
         // refresh list & clear selection
         fetchCustomers()
-        setSelectedCustomers(prev => prev.filter(id => id !== customerId))
+        setSelectedCustomers(prev => prev.filter(id => id !== deleteDialog.customer?.id))
+        setDeleteDialog({ open: false, isLoading: false })
       } else {
         console.error('Delete failed', await resp.text())
+        setDeleteDialog(prev => ({ ...prev, isLoading: false }))
       }
     } catch (err) {
       console.error('Delete request error:', err)
+      setDeleteDialog(prev => ({ ...prev, isLoading: false }))
+    }
+  }
+
+  // ---- bulk delete ----
+  const openBulkDeleteDialog = () => {
+    setBulkDeleteDialog({
+      open: true,
+      isLoading: false
+    })
+  }
+
+  const handleBulkDelete = async () => {
+    setBulkDeleteDialog(prev => ({ ...prev, isLoading: true }))
+    
+    try {
+      const promises = selectedCustomers.map(customerId => 
+        fetch(`/api/customers/${customerId}`, { method: 'DELETE' })
+      )
+      
+      await Promise.all(promises)
+      fetchCustomers()
+      setSelectedCustomers([])
+      setShowBulkActions(false)
+      setBulkDeleteDialog({ open: false, isLoading: false })
+    } catch (error) {
+      console.error('Bulk delete failed:', error)
+      setBulkDeleteDialog(prev => ({ ...prev, isLoading: false }))
     }
   }
 
@@ -232,11 +283,7 @@ export default function CustomersPage() {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => {
-                        if (confirm(`${selectedCustomers.length} Kunden wirklich löschen?`)) {
-                          handleBulkAction('delete')
-                        }
-                      }}
+                      onClick={openBulkDeleteDialog}
                       className="flex items-center gap-2"
                     >
                       <Trash2 className="w-3 h-3" />
@@ -403,7 +450,7 @@ export default function CustomersPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleDeleteCustomer(customer.id)}
+                    onClick={() => openDeleteDialog(customer)}
                     className="text-red-600 hover:text-red-700"
                   >
                     <Trash2 className="w-3 h-3" />
@@ -437,6 +484,27 @@ export default function CustomersPage() {
             )}
           </div>
         )}
+
+        {/* Delete Confirmation Dialogs */}
+        <DeleteConfirmationDialog
+          open={deleteDialog.open}
+          onOpenChange={(open) => setDeleteDialog(prev => ({ ...prev, open }))}
+          onConfirm={handleDeleteCustomer}
+          isLoading={deleteDialog.isLoading}
+          title="Kunde löschen"
+          description="Sind Sie sicher, dass Sie diesen Kunden löschen möchten? Alle zugehörigen Daten, einschließlich Umfragen und Antworten, werden dauerhaft entfernt."
+          itemName={deleteDialog.customer?.companyName}
+        />
+
+        <DeleteConfirmationDialog
+          open={bulkDeleteDialog.open}
+          onOpenChange={(open) => setBulkDeleteDialog(prev => ({ ...prev, open }))}
+          onConfirm={handleBulkDelete}
+          isLoading={bulkDeleteDialog.isLoading}
+          title="Mehrere Kunden löschen"
+          description="Sind Sie sicher, dass Sie die ausgewählten Kunden löschen möchten? Alle zugehörigen Daten werden dauerhaft entfernt."
+          itemCount={selectedCustomers.length}
+        />
       </div>
     </div>
     </Layout>

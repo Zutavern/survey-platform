@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Layout } from '@/components/layout/Layout'
+import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -72,6 +73,13 @@ export default function UsersPage() {
     type: 'none',
     message: ''
   })
+
+  // Delete dialog state
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean
+    user?: User
+    isLoading: boolean
+  }>({ open: false, isLoading: false })
 
   // Check authentication on mount
   useEffect(() => {
@@ -238,16 +246,24 @@ export default function UsersPage() {
     }
   }
   
-  // Delete user
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Sind Sie sicher, dass Sie diesen Benutzer löschen möchten?')) {
-      return
-    }
+  // Delete user functions
+  const openDeleteDialog = (user: User) => {
+    setDeleteDialog({
+      open: true,
+      user,
+      isLoading: false
+    })
+  }
+
+  const handleDeleteUser = async () => {
+    if (!deleteDialog.user) return
+    
+    setDeleteDialog(prev => ({ ...prev, isLoading: true }))
     
     try {
       setStatus({ type: 'none', message: '' })
       
-      const response = await fetch(`/api/users/${userId}`, {
+      const response = await fetch(`/api/users/${deleteDialog.user.id}`, {
         method: 'DELETE'
       })
       
@@ -259,6 +275,7 @@ export default function UsersPage() {
         
         // Refresh users list
         fetchUsers()
+        setDeleteDialog({ open: false, isLoading: false })
         
         // Clear success message after 3 seconds
         setTimeout(() => {
@@ -270,6 +287,7 @@ export default function UsersPage() {
           type: 'error',
           message: errorData.error || 'Failed to delete user'
         })
+        setDeleteDialog(prev => ({ ...prev, isLoading: false }))
       }
     } catch (error) {
       console.error('Error deleting user:', error)
@@ -277,6 +295,7 @@ export default function UsersPage() {
         type: 'error',
         message: 'Failed to delete user'
       })
+      setDeleteDialog(prev => ({ ...prev, isLoading: false }))
     }
   }
   
@@ -588,7 +607,7 @@ export default function UsersPage() {
                                   variant="outline" 
                                   size="sm"
                                   className="text-red-600 hover:text-red-700"
-                                  onClick={() => handleDeleteUser(user.id)}
+                                  onClick={() => openDeleteDialog(user)}
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </Button>
@@ -607,6 +626,17 @@ export default function UsersPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Delete Confirmation Dialog */}
+          <DeleteConfirmationDialog
+            open={deleteDialog.open}
+            onOpenChange={(open) => setDeleteDialog(prev => ({ ...prev, open }))}
+            onConfirm={handleDeleteUser}
+            isLoading={deleteDialog.isLoading}
+            title="Benutzer löschen"
+            description="Sind Sie sicher, dass Sie diesen Benutzer löschen möchten? Der Benutzer verliert sofort den Zugang zum System und alle zugehörigen Daten werden entfernt."
+            itemName={deleteDialog.user ? `${deleteDialog.user.email}${deleteDialog.user.name ? ` (${deleteDialog.user.name})` : ''}` : undefined}
+          />
         </div>
       </div>
     </Layout>

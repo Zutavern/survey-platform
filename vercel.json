@@ -9,12 +9,20 @@
   "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": ".next",
   "env": {
+    "DATABASE_URL": "@neon-database-url",
+    "DIRECT_URL": "@neon-direct-url", 
+    "JWT_SECRET": "@jwt-secret",
+    "ENCRYPTION_KEY": "@encryption-key",
     "TALLY_API_KEY": "@tally-api-key",
     "OPENAI_API_KEY": "@openai-api-key",
     "NODE_ENV": "production"
   },
   "build": {
     "env": {
+      "DATABASE_URL": "@neon-database-url",
+      "DIRECT_URL": "@neon-direct-url",
+      "JWT_SECRET": "@jwt-secret", 
+      "ENCRYPTION_KEY": "@encryption-key",
       "TALLY_API_KEY": "@tally-api-key",
       "OPENAI_API_KEY": "@openai-api-key"
     }
