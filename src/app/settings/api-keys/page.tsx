@@ -296,12 +296,15 @@ export default function ApiKeysPage() {
                   </div>
                 ) : apiKeys.tally.present && !isEditingTally ? (
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-slate-100 rounded text-slate-700 font-mono">
-                        •••• •••• •••• {apiKeys.tally.last4}
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        <div className="p-2 bg-slate-100 rounded text-slate-700 font-mono">
+                          •••• •••• •••• {apiKeys.tally.last4}
+                        </div>
                       </div>
                       <div className="text-xs text-slate-500">
-                        Gespeicherter Schlüssel (maskiert)
+                        Konfiguriert
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -389,12 +392,15 @@ export default function ApiKeysPage() {
                   </div>
                 ) : apiKeys.openai.present && !isEditingOpenAI ? (
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-slate-100 rounded text-slate-700 font-mono">
-                        •••• •••• •••• {apiKeys.openai.last4}
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        <div className="p-2 bg-slate-100 rounded text-slate-700 font-mono">
+                          •••• •••• •••• {apiKeys.openai.last4}
+                        </div>
                       </div>
                       <div className="text-xs text-slate-500">
-                        Gespeicherter Schlüssel (maskiert)
+                        Konfiguriert
                       </div>
                     </div>
                     <div className="flex gap-2">

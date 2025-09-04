@@ -108,8 +108,11 @@ export default function TallyDashboard() {
     }
   };
 
-  const handleDeleteForm = async (formId: string) => {
-    if (confirm('Möchten Sie dieses Formular wirklich löschen?')) {
+  const handleDeleteForm = async (formId: string, formTitle: string, formSource: string) => {
+    const sourceText = formSource === 'database' ? 'lokales/AI-generiertes' : 
+                      formSource === 'tally' ? 'Tally' : 'lokales';
+    
+    if (confirm(`Möchten Sie das ${sourceText} Formular "${formTitle}" wirklich löschen?\n\nDies wird auch alle zugehörigen Daten aus der Datenbank entfernen (Felder, Submissions, Antworten und Analysen).`)) {
       try {
         const response = await fetch(`/api/tally/forms/${formId}`, {
           method: 'DELETE',
@@ -119,8 +122,18 @@ export default function TallyDashboard() {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         
+        const result = await response.json();
+        
         // Remove from local state
         setForms(forms.filter(form => form.id !== formId));
+        
+        // Show success message with details
+        if (result.deletedRecords) {
+          console.log('🗑️ Gelöscht:', result.deletedRecords);
+          alert(`Formular erfolgreich gelöscht!\n\nGelöschte Datensätze:\n- Formulardefinition: ${result.deletedRecords.formDefinition}\n- Formularfelder: ${result.deletedRecords.formFields}\n- Submissions: ${result.deletedRecords.formSubmissions}\n- Antworten: ${result.deletedRecords.formAnswers}\n- AI-Analysen: ${result.deletedRecords.analyses}`);
+        } else {
+          alert(result.message || 'Formular erfolgreich gelöscht!');
+        }
       } catch (err) {
         console.error('Error deleting form:', err);
         alert('Fehler beim Löschen des Formulars');
@@ -438,39 +451,68 @@ export default function TallyDashboard() {
                 </CardHeader>
                 
                 <CardContent className="pt-0 space-y-4">
-                  {/* URL Preview */}
+                  {/* URL Preview or Source Indicator */}
                   <div className="bg-slate-50/70 rounded-lg p-3 group-hover:bg-blue-50/70 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2 flex-1 min-w-0">
-                        <Globe className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                        <code className="text-xs text-slate-600 truncate">
-                          {form.url.replace('https://tally.so/r/', '')}
-                        </code>
+                        {form.url ? (
+                          <>
+                            <Globe className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                            <code className="text-xs text-slate-600 truncate">
+                              {form.url.replace('https://tally.so/r/', '')}
+                            </code>
+                          </>
+                        ) : (
+                          <>
+                            {form.source === 'database' ? (
+                              <Bot className="h-4 w-4 text-purple-500 flex-shrink-0" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                            )}
+                            <span className="text-xs text-slate-600 truncate">
+                              {form.source === 'database' ? 'AI-generiertes lokales Formular' : 'Lokales Formular'}
+                            </span>
+                          </>
+                        )}
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleCopyUrl(form.url)}
-                        className="h-7 w-7 p-0 hover:bg-white/80"
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
+                      {form.url && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleCopyUrl(form.url)}
+                          className="h-7 w-7 p-0 hover:bg-white/80"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                   
                   {/* Primary Actions */}
                   <div className="flex gap-2">
-                    <a 
-                      href={form.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex-1"
-                    >
-                      <Button variant="outline" size="sm" className="w-full group-hover:border-blue-200 group-hover:text-blue-600">
-                        <ExternalLink className="mr-2 h-3 w-3" />
-                        Öffnen
+                    {form.url ? (
+                      <a 
+                        href={form.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex-1"
+                      >
+                        <Button variant="outline" size="sm" className="w-full group-hover:border-blue-200 group-hover:text-blue-600">
+                          <ExternalLink className="mr-2 h-3 w-3" />
+                          Öffnen
+                        </Button>
+                      </a>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1 group-hover:border-purple-200 group-hover:text-purple-600"
+                        disabled
+                      >
+                        <FileText className="mr-2 h-3 w-3" />
+                        Lokal
                       </Button>
-                    </a>
+                    )}
                     
                     <Link 
                       href={`/tally/${form.id}/analytics`} 
@@ -511,7 +553,7 @@ export default function TallyDashboard() {
                         variant="ghost" 
                         size="sm"
                         className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                        onClick={() => handleDeleteForm(form.id)}
+                        onClick={() => handleDeleteForm(form.id, form.title, form.source || 'unknown')}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>

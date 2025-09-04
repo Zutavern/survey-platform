@@ -164,7 +164,43 @@ export async function GET() {
       source: 'local'
     }));
 
-    const combined = [...tallyForms, ...mockForms];
+    // Fetch forms from database that are not in Tally (local/AI generated forms)
+    const dbForms = await prisma.formDefinition.findMany({
+      where: {
+        sourceId: null // Only local forms (not synced with Tally)
+      },
+      include: {
+        fields: {
+          orderBy: {
+            order: 'asc'
+          }
+        },
+        submissions: true
+      }
+    });
+
+    const transformedDbForms = dbForms.map((form: any) => ({
+      id: form.id,
+      title: form.title,
+      description: form.description || '',
+      status: form.status || 'draft',
+      url: undefined, // Local forms don't have URLs
+      createdAt: form.createdAt,
+      updatedAt: form.updatedAt,
+      responses: form.submissions?.length || 0,
+      views: 0,
+      questions: form.fields?.map((field: any) => ({
+        id: field.id,
+        title: field.label,
+        type: field.type,
+        required: field.required,
+        options: field.options,
+        order: field.order
+      })) || [],
+      source: 'database'
+    }));
+
+    const combined = [...tallyForms, ...mockForms, ...transformedDbForms];
 
     // Cache the forms list
     tallyCacheService.setFormData('forms-list', combined);

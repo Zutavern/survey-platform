@@ -180,25 +180,167 @@ export async function DELETE(
   const { id: formId } = await params
   
   try {
+    const { prisma } = await import('@/lib/prisma')
+    const { tallyCacheService } = await import('@/lib/tallyCache')
+    const { mockStorage } = await import('@/lib/mockStorage')
+    const { decrypt, Encrypted } = await import('@/lib/crypto')
+    const { cookies } = await import('next/headers')
+    const { env } = await import('@/lib/env')
 
-    const response = await fetch(`${TALLY_API_BASE}/forms/${formId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${TALLY_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Tally API error: ${response.status}`)
+    // Resolve API key using the same logic as in the route.ts GET handler
+    let apiKey: string | undefined
+    try {
+      const cookieStore = await cookies()
+      const authCookie = cookieStore.get('auth-token')
+      if (authCookie?.value === 'authenticated') {
+        const cred = await prisma.apiCredential.findUnique({
+          where: { userEmail: 'admin@admin.com' },
+          select: { tallyCipher: true, tallyIv: true, tallyTag: true }
+        })
+        if (cred?.tallyCipher && cred.tallyIv && cred.tallyTag) {
+          try {
+            apiKey = decrypt({
+              cipher: cred.tallyCipher,
+              iv: cred.tallyIv,
+              tag: cred.tallyTag
+            } as Encrypted)
+          } catch (e) {
+            console.error('Failed to decrypt stored Tally API key:', e)
+          }
+        }
+      }
+      apiKey = apiKey || env.TALLY_API_KEY
+    } catch (err) {
+      console.error('Error resolving Tally API key:', err)
+      apiKey = env.TALLY_API_KEY
     }
 
-    return NextResponse.json({ success: true, message: 'Form deleted successfully' })
-  } catch (error) {
-    console.error('Error deleting Tally form:', error)
+    // Check if this is a database form (local/AI generated)
+    const dbForm = await prisma.formDefinition.findUnique({
+      where: { id: formId },
+      include: {
+        fields: true,
+        submissions: {
+          include: {
+            answers: true,
+            analyses: true
+          }
+        }
+      }
+    })
+
+    if (dbForm) {
+      console.log('🗑️ Deleting local/database form:', formId)
+      
+      // Delete the form and all related data (cascading deletes will handle the rest)
+      await prisma.formDefinition.delete({
+        where: { id: formId }
+      })
+      
+      // Also remove from mock storage if it exists there
+      mockStorage.deleteForm(formId)
+      
+      // Clear cache
+      tallyCacheService.clearAll()
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Lokales Formular erfolgreich gelöscht',
+        deletedRecords: {
+          formDefinition: 1,
+          formFields: dbForm.fields.length,
+          formSubmissions: dbForm.submissions.length,
+          formAnswers: dbForm.submissions.reduce((sum, sub) => sum + sub.answers.length, 0),
+          analyses: dbForm.submissions.reduce((sum, sub) => sum + sub.analyses.length, 0)
+        }
+      })
+    }
+
+    // Check if it's a Tally form by sourceId
+    const tallyForm = await prisma.formDefinition.findFirst({
+      where: { sourceId: formId },
+      include: {
+        fields: true,
+        submissions: {
+          include: {
+            answers: true,
+            analyses: true
+          }
+        }
+      }
+    })
+
+    let tallyDeleted = false
+    if (apiKey) {
+      try {
+        console.log('🗑️ Attempting to delete Tally form:', formId)
+        const response = await fetch(`${TALLY_API_BASE}/forms/${formId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (response.ok) {
+          console.log('✅ Tally form deleted successfully')
+          tallyDeleted = true
+        } else {
+          console.log('⚠️ Tally API delete failed, status:', response.status)
+        }
+      } catch (tallyError) {
+        console.error('❌ Error deleting from Tally API:', tallyError)
+      }
+    }
+
+    // Clean up database records for Tally form if they exist
+    let deletedRecords = {
+      formDefinition: 0,
+      formFields: 0,
+      formSubmissions: 0,
+      formAnswers: 0,
+      analyses: 0
+    }
+
+    if (tallyForm) {
+      console.log('🗑️ Cleaning up database records for Tally form:', formId)
+      
+      deletedRecords = {
+        formDefinition: 1,
+        formFields: tallyForm.fields.length,
+        formSubmissions: tallyForm.submissions.length,
+        formAnswers: tallyForm.submissions.reduce((sum, sub) => sum + sub.answers.length, 0),
+        analyses: tallyForm.submissions.reduce((sum, sub) => sum + sub.analyses.length, 0)
+      }
+
+      await prisma.formDefinition.delete({
+        where: { id: tallyForm.id }
+      })
+    }
+
+    // Also remove from mock storage
+    mockStorage.deleteForm(formId)
     
-    // Return mock success response
-    return NextResponse.json({ success: true, message: 'Form deleted successfully (mock)' })
+    // Clear cache to refresh the forms list
+    tallyCacheService.clearAll()
+
+    const message = tallyDeleted 
+      ? 'Formular erfolgreich aus Tally und lokaler Datenbank gelöscht'
+      : 'Formular aus lokaler Datenbank gelöscht (Tally API nicht verfügbar)'
+
+    return NextResponse.json({ 
+      success: true, 
+      message,
+      tallyDeleted,
+      deletedRecords
+    })
+
+  } catch (error) {
+    console.error('Error deleting form:', error)
+    return NextResponse.json(
+      { success: false, error: 'Fehler beim Löschen des Formulars' },
+      { status: 500 }
+    )
   }
 }
 
