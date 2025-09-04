@@ -5,9 +5,34 @@ import { mockStorage } from '@/lib/mockStorage'
 import { prisma } from '@/lib/prisma'
 import { decrypt, Encrypted } from '@/lib/crypto'
 import { cookies } from 'next/headers'
+import { z } from 'zod'
 
 // Base URL stays constant
 const TALLY_API_BASE = 'https://api.tally.so'
+
+// Input validation schemas
+const questionSchema = z.object({
+  title: z.string().min(1, 'Question title is required').max(200, 'Title too long'),
+  type: z.enum(['text', 'email', 'radio', 'checkbox', 'textarea', 'rating', 'scale', 'date', 'file']),
+  description: z.string().max(1000, 'Description too long').optional(),
+  required: z.boolean().default(false),
+  options: z.array(z.string().min(1).max(100)).optional(),
+  order: z.number().int().positive().optional()
+})
+
+const createFormSchema = z.object({
+  title: z.string().min(1, 'Form title is required').max(200, 'Title too long'),
+  description: z.string().max(1000, 'Description too long').optional(),
+  questions: z.array(questionSchema).min(1, 'At least one question is required').max(50, 'Too many questions'),
+  settings: z.object({
+    allowMultipleSubmissions: z.boolean().optional(),
+    showProgressBar: z.boolean().optional(),
+    collectEmails: z.boolean().optional(),
+    thankYouMessage: z.string().max(500, 'Thank you message too long').optional()
+  }).optional(),
+  aiGenerated: z.boolean().optional(),
+  originalPrompt: z.string().max(2000, 'Prompt too long').optional()
+})
 
 /**
  * Resolve the Tally API key for the current request:
@@ -165,6 +190,7 @@ export async function GET() {
     }));
 
     // Fetch forms from database that are not in Tally (local/AI generated forms)
+    // Optimized to prevent N+1 query problems
     const dbForms = await prisma.formDefinition.findMany({
       where: {
         sourceId: null // Only local forms (not synced with Tally)
@@ -175,7 +201,11 @@ export async function GET() {
             order: 'asc'
           }
         },
-        submissions: true
+        _count: {
+          select: {
+            submissions: true
+          }
+        }
       }
     });
 
@@ -187,7 +217,7 @@ export async function GET() {
       url: undefined, // Local forms don't have URLs
       createdAt: form.createdAt,
       updatedAt: form.updatedAt,
-      responses: form.submissions?.length || 0,
+      responses: form._count.submissions || 0,
       views: 0,
       questions: form.fields?.map((field: any) => ({
         id: field.id,
@@ -222,7 +252,22 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const rawBody = await request.json()
+    
+    // Validate input
+    const validationResult = createFormSchema.safeParse(rawBody)
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Invalid input data',
+          details: validationResult.error.issues 
+        },
+        { status: 400 }
+      )
+    }
+    
+    const body = validationResult.data
 
     const apiKey = await resolveTallyApiKey()
     if (!apiKey) {

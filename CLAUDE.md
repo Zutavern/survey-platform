@@ -57,12 +57,77 @@ npx prisma migrate deploy
 
 For detailed Neon setup instructions, see `NEON_SETUP.md`.
 
+## Recent Database Schema Changes
+
+### Form Persistence Models (Added)
+The application now includes a universal form storage system:
+
+```prisma
+model FormDefinition {
+  id          String   @id @default(cuid())
+  sourceId    String?  // Links to external providers (e.g., Tally)
+  title       String
+  description String?
+  status      String   @default("draft")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  fields      FormField[]
+  submissions FormSubmission[]
+}
+
+model FormField {
+  id       String   @id @default(cuid())
+  formId   String
+  key      String   // Stable identifier for the field
+  label    String
+  type     String   // Field type (text, email, radio, etc.)
+  required Boolean  @default(false)
+  order    Int      @default(0)
+  options  Json?    // Field configuration as JSON
+}
+
+model FormSubmission {
+  id          String   @id @default(cuid())
+  formId      String
+  submittedAt DateTime @default(now())
+  respondent  String?
+  meta        Json?
+  answers     FormAnswer[]
+  analyses    Analysis[]  // AI analysis results
+}
+
+model Analysis {
+  id           String   @id @default(cuid())
+  submissionId String
+  model        String   // AI model used (e.g., "gpt-4")
+  result       Json     // Analysis results
+  createdAt    DateTime @default(now())
+}
+```
+
+### API Credentials Security (Added)
+Encrypted storage for user API keys:
+
+```prisma
+model ApiCredential {
+  id           String   @id @default(cuid())
+  userEmail    String   @unique
+  tallyCipher  String?  // AES-256-GCM encrypted components
+  tallyIv      String?
+  tallyTag     String?
+  openaiCipher String?
+  openaiIv     String?
+  openaiTag    String?
+}
+```
+
 ## Architecture
 
 ### Tech Stack
 - **Frontend**: Next.js 15 App Router, React 19, TypeScript
 - **Styling**: Tailwind CSS v4, Shadcn UI, Radix UI primitives
 - **Database**: Neon (Serverless PostgreSQL) with Prisma ORM
+- **AI Integration**: OpenAI GPT-4 for form generation and submission analysis
 - **Icons**: Lucide React
 
 ### Project Structure
@@ -79,6 +144,15 @@ The core entities are:
 - **Option**: Answer options for multiple choice questions
 - **Response**: User submissions to surveys
 - **Answer**: Individual answers linking responses to questions/options
+- **Customer**: Customer management with contact information and assigned surveys
+- **ContactPerson**: Additional contacts for customer organizations
+- **CustomerSurvey**: Surveys assigned to customers with Tally integration
+- **FormDefinition**: Generic form storage for both Tally and local forms
+- **FormField**: Configurable form fields with validation and options
+- **FormSubmission**: User submissions to forms with metadata
+- **FormAnswer**: Individual answers to form fields with JSON value storage
+- **Analysis**: AI-powered analysis results of form submissions
+- **ApiCredential**: Encrypted storage of user API keys (Tally, OpenAI)
 
 ### Color Scheme
 The application uses a consistent dark blue color palette:
@@ -102,6 +176,7 @@ npx shadcn@latest add [component-name]
 - `checkbox.tsx`, `radio-group.tsx` - Form controls
 - `label.tsx` - Form labels
 - `badge.tsx` - Status indicators
+- `delete-confirmation-dialog.tsx` - Modal delete confirmations
 
 ## Environment Setup
 
@@ -115,6 +190,7 @@ DATABASE_URL="postgresql://username:password@ep-dev-branch-xyz.neon.tech/neondb?
 DIRECT_URL="postgresql://username:password@ep-dev-branch-xyz.neon.tech/neondb?sslmode=require"
 JWT_SECRET="development-jwt-secret"
 ENCRYPTION_KEY="dev-encryption-key-32-chars!!"
+OPENAI_API_KEY="your-openai-api-key-here"
 ```
 
 ### Production Environment (Vercel)
@@ -123,17 +199,85 @@ Set these environment variables in Vercel:
 - `@neon-direct-url` - Neon direct connection URL  
 - `@jwt-secret` - Production JWT secret
 - `@encryption-key` - Production encryption key
+- `@openai-api-key` - OpenAI API key for form generation
 
 See `NEON_SETUP.md` for detailed configuration instructions.
 
 ## API Routes Structure
 
 The application uses Next.js App Router with route handlers:
+
+### Survey Management
 - `POST /api/surveys` - Create new survey
 - `GET /api/surveys` - List all surveys  
 - `GET /api/surveys/[id]` - Get single survey
 - `PUT /api/surveys/[id]` - Update survey
 - `DELETE /api/surveys/[id]` - Delete survey
+
+### Customer Management
+- `GET /api/customers` - List all customers
+- `POST /api/customers` - Create new customer
+- `GET /api/customers/[id]` - Get single customer
+- `PUT /api/customers/[id]` - Update customer
+- `DELETE /api/customers/[id]` - Delete customer
+
+### AI-Powered Features
+- `POST /api/ai/generate-form` - Generate forms using OpenAI GPT-4
+- `POST /api/ai/analyze-submission` - Analyze form submissions with AI
+
+### Form Management
+- `GET /api/forms` - List form definitions
+- `POST /api/forms` - Create form definition
+- `GET /api/forms/[id]` - Get form details
+- `POST /api/forms/[id]/submit` - Submit form response
+
+## AI-Powered Features
+
+### Form Generation
+The platform includes AI-powered form generation using OpenAI GPT-4:
+- **Smart Form Creation**: Generate professional forms from natural language prompts
+- **Comprehensive Field Types**: Supports text, email, phone, radio, checkbox, select, rating, scale, date, file upload
+- **Intelligent Validation**: Automatically adds appropriate validation rules
+- **Professional Styling**: Consistent theme and UX patterns
+
+### Submission Analysis
+AI-powered analysis of form submissions:
+- **Content Analysis**: Extract insights from text responses
+- **Sentiment Analysis**: Understand respondent sentiment
+- **Pattern Recognition**: Identify trends across submissions
+- **Automated Reporting**: Generate summaries and recommendations
+
+### API Key Management
+Secure storage of user API credentials:
+- **Encrypted Storage**: Uses AES-256-GCM encryption for API keys
+- **Per-User Keys**: Individual API keys for Tally and OpenAI
+- **Fallback Support**: System-level keys as fallback option
+
+## Form Persistence System
+
+### Universal Form Storage
+The platform provides a unified form storage system that works with both Tally forms and locally created forms:
+
+#### FormDefinition Model
+- Stores form metadata (title, description, status)
+- Links to external providers via `sourceId`
+- Tracks creation and modification dates
+
+#### FormField Model  
+- Flexible field configuration with JSON options
+- Support for all common form field types
+- Built-in validation and ordering
+
+#### FormSubmission & FormAnswer Models
+- Normalized submission storage
+- JSON-based answer values for flexibility
+- Complete audit trail with timestamps
+
+### Benefits
+- **Provider Agnostic**: Works with Tally, local forms, or future providers
+- **Rich Analytics**: Enables cross-form analysis and reporting
+- **Data Portability**: Easy migration between form providers
+- **Consistent API**: Unified interface regardless of form source
 
 ## MCP Servers
 

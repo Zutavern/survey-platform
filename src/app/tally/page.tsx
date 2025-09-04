@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ErrorBoundary, DashboardErrorFallback } from '@/components/ui/error-boundary';
 import { 
   Plus, 
   Eye, 
@@ -167,6 +168,17 @@ export default function TallyDashboard() {
     });
   };
 
+  // Memoized stats calculations for performance
+  const stats = useMemo(() => {
+    const totalForms = forms.length
+    const totalResponses = forms.reduce((sum, f) => sum + f.responses, 0)
+    const totalViews = forms.reduce((sum, f) => sum + f.views, 0)
+    const conversionRate = totalViews > 0 ? ((totalResponses / totalViews) * 100).toFixed(1) : '0.0'
+    const publishedForms = forms.filter(f => f.status === 'published').length
+    
+    return { totalForms, totalResponses, totalViews, conversionRate, publishedForms }
+  }, [forms]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -184,7 +196,8 @@ export default function TallyDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <ErrorBoundary fallback={DashboardErrorFallback}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Enhanced Header */}
       <div className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40">
         <div className="container mx-auto px-4 py-6">
@@ -258,7 +271,7 @@ export default function TallyDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-600 mb-1">Formulare gesamt</p>
-                  <p className="text-2xl font-bold text-slate-900">{forms.length}</p>
+                  <p className="text-2xl font-bold text-slate-900">{stats.totalForms}</p>
                   <p className="text-xs text-blue-600 flex items-center mt-1">
                     <Sparkles className="h-3 w-3 mr-1" />
                     Aktiv verwaltet
@@ -276,7 +289,7 @@ export default function TallyDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-600 mb-1">Gesamtantworten</p>
-                  <p className="text-2xl font-bold text-slate-900">{forms.reduce((sum, f) => sum + f.responses, 0)}</p>
+                  <p className="text-2xl font-bold text-slate-900">{stats.totalResponses}</p>
                   <p className="text-xs text-green-600 flex items-center mt-1">
                     <TrendingUp className="h-3 w-3 mr-1" />
                     +15% diesen Monat
@@ -294,7 +307,7 @@ export default function TallyDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-600 mb-1">Aufrufe gesamt</p>
-                  <p className="text-2xl font-bold text-slate-900">{forms.reduce((sum, f) => sum + f.views, 0)}</p>
+                  <p className="text-2xl font-bold text-slate-900">{stats.totalViews}</p>
                   <p className="text-xs text-purple-600 flex items-center mt-1">
                     <Globe className="h-3 w-3 mr-1" />
                     Online verfügbar
@@ -312,9 +325,7 @@ export default function TallyDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-600 mb-1">Konversionsrate</p>
-                  <p className="text-2xl font-bold text-slate-900">
-                    {forms.length > 0 ? ((forms.reduce((sum, f) => sum + f.responses, 0) / forms.reduce((sum, f) => sum + f.views, 0)) * 100).toFixed(1) : '0.0'}%
-                  </p>
+                  <p className="text-2xl font-bold text-slate-900">{stats.conversionRate}%</p>
                   <p className="text-xs text-orange-600 flex items-center mt-1">
                     <Clock className="h-3 w-3 mr-1" />
                     Optimiert
@@ -575,25 +586,25 @@ export default function TallyDashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-center">
                 <div>
                   <div className="text-2xl font-bold text-blue-900">
-                    {forms.length}
+                    {stats.totalForms}
                   </div>
                   <div className="text-sm text-blue-600">Formulare gesamt</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-green-600">
-                    {forms.filter(f => f.status === 'published').length}
+                    {stats.publishedForms}
                   </div>
                   <div className="text-sm text-blue-600">Veröffentlicht</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-blue-600">
-                    {forms.reduce((sum, f) => sum + f.responses, 0)}
+                    {stats.totalResponses}
                   </div>
                   <div className="text-sm text-blue-600">Antworten gesamt</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-blue-600">
-                    {forms.reduce((sum, f) => sum + f.views, 0)}
+                    {stats.totalViews}
                   </div>
                   <div className="text-sm text-blue-600">Aufrufe gesamt</div>
                 </div>
@@ -603,5 +614,6 @@ export default function TallyDashboard() {
         )}
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

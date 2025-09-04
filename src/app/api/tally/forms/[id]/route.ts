@@ -1,7 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const TALLY_API_KEY = process.env.TALLY_API_KEY || 'tly-nTdwwmUSXJdfZ7CTdz3SqJHF0BnE5SgE'
 const TALLY_API_BASE = 'https://api.tally.so'
+
+// Helper function to get Tally API key safely
+async function getTallyApiKey(): Promise<string | undefined> {
+  try {
+    const { cookies } = await import('next/headers')
+    const { prisma } = await import('@/lib/prisma')
+    const { decrypt, Encrypted } = await import('@/lib/crypto')
+    const { env } = await import('@/lib/env')
+
+    const cookieStore = await cookies()
+    const authCookie = cookieStore.get('auth-token')
+    
+    if (authCookie?.value === 'authenticated') {
+      const cred = await prisma.apiCredential.findUnique({
+        where: { userEmail: 'admin@admin.com' },
+        select: { tallyCipher: true, tallyIv: true, tallyTag: true }
+      })
+      
+      if (cred?.tallyCipher && cred.tallyIv && cred.tallyTag) {
+        try {
+          return decrypt({
+            cipher: cred.tallyCipher,
+            iv: cred.tallyIv,
+            tag: cred.tallyTag
+          } as Encrypted)
+        } catch (e) {
+          console.error('Failed to decrypt stored Tally API key:', e)
+        }
+      }
+    }
+    
+    return env.TALLY_API_KEY
+  } catch (err) {
+    console.error('Error resolving Tally API key:', err)
+    return process.env.TALLY_API_KEY
+  }
+}
 
 export async function GET(
   request: NextRequest,
@@ -10,11 +46,50 @@ export async function GET(
   const { id: formId } = await params
   
   try {
+    const apiKey = await getTallyApiKey()
+    
+    if (!apiKey) {
+      console.warn('No Tally API key available, returning mock data')
+      // Return mock form data as fallback
+      const mockForm = {
+        id: formId,
+        title: 'Kunden-Assessment - Ersteinschätzung',
+        description: 'Erfassung der wichtigsten Kundeninformationen für Beratungsprojekte',
+        status: 'draft',
+        questions: [
+          {
+            id: '1',
+            type: 'text',
+            title: 'Unternehmensname',
+            description: 'Bitte geben Sie den vollständigen Namen Ihres Unternehmens an',
+            required: true,
+            placeholder: 'z.B. Mustermann GmbH',
+            order: 1
+          },
+          {
+            id: '2',
+            type: 'radio',
+            title: 'Unternehmensgröße',
+            description: 'Wie viele Mitarbeiter hat Ihr Unternehmen?',
+            required: true,
+            options: ['1-10 Mitarbeiter', '11-50 Mitarbeiter', '51-250 Mitarbeiter', '251-1000 Mitarbeiter', '1000+ Mitarbeiter'],
+            order: 2
+          }
+        ],
+        settings: {
+          allowMultipleSubmissions: false,
+          showProgressBar: true,
+          collectEmails: true,
+          thankYouMessage: 'Vielen Dank für Ihre Teilnahme! Wir werden uns bald bei Ihnen melden.'
+        }
+      }
+      return NextResponse.json(mockForm)
+    }
 
     const response = await fetch(`${TALLY_API_BASE}/forms/${formId}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${TALLY_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
     })
@@ -126,6 +201,12 @@ export async function PUT(
   
   try {
     const body = await request.json()
+    const apiKey = await getTallyApiKey()
+
+    if (!apiKey) {
+      console.warn('No Tally API key available, returning mock response')
+      return NextResponse.json({ success: true, message: 'Form updated successfully (mock)' })
+    }
 
     const formData = {
       title: body.title,
@@ -152,7 +233,7 @@ export async function PUT(
     const response = await fetch(`${TALLY_API_BASE}/forms/${formId}`, {
       method: 'PUT',
       headers: {
-        'Authorization': `Bearer ${TALLY_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(formData),
@@ -187,33 +268,8 @@ export async function DELETE(
     const { cookies } = await import('next/headers')
     const { env } = await import('@/lib/env')
 
-    // Resolve API key using the same logic as in the route.ts GET handler
-    let apiKey: string | undefined
-    try {
-      const cookieStore = await cookies()
-      const authCookie = cookieStore.get('auth-token')
-      if (authCookie?.value === 'authenticated') {
-        const cred = await prisma.apiCredential.findUnique({
-          where: { userEmail: 'admin@admin.com' },
-          select: { tallyCipher: true, tallyIv: true, tallyTag: true }
-        })
-        if (cred?.tallyCipher && cred.tallyIv && cred.tallyTag) {
-          try {
-            apiKey = decrypt({
-              cipher: cred.tallyCipher,
-              iv: cred.tallyIv,
-              tag: cred.tallyTag
-            } as Encrypted)
-          } catch (e) {
-            console.error('Failed to decrypt stored Tally API key:', e)
-          }
-        }
-      }
-      apiKey = apiKey || env.TALLY_API_KEY
-    } catch (err) {
-      console.error('Error resolving Tally API key:', err)
-      apiKey = env.TALLY_API_KEY
-    }
+    // Get API key using helper function
+    const apiKey = await getTallyApiKey()
 
     // Check if this is a database form (local/AI generated)
     const dbForm = await prisma.formDefinition.findUnique({

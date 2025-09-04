@@ -48,6 +48,23 @@ export default function ApiKeysPage() {
     fetchApiKeys()
   }, [])
 
+  // Auto-dismiss success/error messages after 3 seconds
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout
+    
+    if (status.type === 'success' || status.type === 'error') {
+      timeoutId = setTimeout(() => {
+        setStatus({ type: 'none', message: '' })
+      }, 3000)
+    }
+    
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+    }
+  }, [status.type, status.message])
+
   const fetchApiKeys = async () => {
     try {
       setLoading(true)
@@ -67,10 +84,7 @@ export default function ApiKeysPage() {
           message: 'Keine API-Schlüssel konfiguriert. Bitte fügen Sie Ihre Tally und OpenAI API-Schlüssel hinzu, um alle Funktionen zu nutzen.'
         })
         
-        // Auto-dismiss after 8 seconds for info messages
-        setTimeout(() => {
-          setStatus({ type: 'none', message: '' })
-        }, 8000)
+        // No auto-dismiss - let user dismiss manually
       }
     } catch (error) {
       console.error('Error fetching API keys:', error)
@@ -128,11 +142,6 @@ export default function ApiKeysPage() {
         message: 'API keys updated successfully'
       })
       
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setStatus({ type: 'none', message: '' })
-      }, 3000)
-      
     } catch (error) {
       console.error('Error saving API keys:', error)
       setStatus({
@@ -171,10 +180,6 @@ export default function ApiKeysPage() {
         message: 'Tally API key removed successfully'
       })
       
-      setTimeout(() => {
-        setStatus({ type: 'none', message: '' })
-      }, 3000)
-      
     } catch (error) {
       console.error('Error clearing Tally API key:', error)
       setStatus({
@@ -212,10 +217,6 @@ export default function ApiKeysPage() {
         type: 'success',
         message: 'OpenAI API key removed successfully'
       })
-      
-      setTimeout(() => {
-        setStatus({ type: 'none', message: '' })
-      }, 3000)
       
     } catch (error) {
       console.error('Error clearing OpenAI API key:', error)
