@@ -144,7 +144,7 @@ export async function GET(
       const responseRate = totalSubmissions > 0 ? (responseCount / totalSubmissions) * 100 : 0;
 
       // Calculate answer distribution for choice questions
-      let answers: { [key: string]: number } = {};
+      const answers: { [key: string]: number } = {};
       if (inputBlock && ['MULTIPLE_CHOICE', 'CHECKBOXES', 'DROPDOWN'].includes(inputBlock.type)) {
         questionResponses.forEach((sub: any) => {
           const answer = sub.answers[titleBlock.uuid] || sub.answers[inputBlock.uuid];
