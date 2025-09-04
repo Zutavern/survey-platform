@@ -1,4 +1,9 @@
 import type { NextConfig } from "next";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const nextConfig: NextConfig = {
   eslint: {
@@ -10,6 +15,11 @@ const nextConfig: NextConfig = {
     // Warning: This allows production builds to successfully complete even if
     // your project has type errors.
     ignoreBuildErrors: true,
+  },
+  experimental: {
+    turbopack: {
+      root: __dirname,
+    },
   },
 };
 
