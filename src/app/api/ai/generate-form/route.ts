@@ -4,9 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { decrypt, Encrypted } from '@/lib/crypto'
 import { cookies } from 'next/headers'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+// Remove global OpenAI instance that causes build errors
+// Will instantiate per-request with proper key resolution
 
 /**
  * Resolve the OpenAI API key for the current request

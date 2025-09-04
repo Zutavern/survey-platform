@@ -35,7 +35,7 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (data.success) {
-        router.push('/tally');
+        router.push('/dashboard');
         router.refresh();
       } else {
         setError(data.message || 'Login fehlgeschlagen');
@@ -135,10 +135,26 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-6 pt-6 border-t border-slate-200">
-              <div className="text-sm text-center text-blue-600">
-                <p className="font-medium">Demo-Zugangsdaten:</p>
-                <p>E-Mail: admin@admin.com</p>
-                <p>Passwort: admin123</p>
+              <div className="text-sm text-center text-blue-600 space-y-4">
+                <p className="font-medium text-blue-900">Demo-Zugangsdaten für Tests:</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <p className="font-medium text-blue-800">👑 Administrator</p>
+                    <p className="text-sm text-blue-700">admin@admin.com</p>
+                    <p className="text-sm text-blue-700">admin123</p>
+                  </div>
+                  
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <p className="font-medium text-green-800">👤 Standard User</p>
+                    <p className="text-sm text-green-700">user@test.com</p>
+                    <p className="text-sm text-green-700">test123</p>
+                  </div>
+                </div>
+                
+                <p className="text-xs text-slate-600 italic">
+                  Beide Benutzer haben vollen Zugriff auf die Platform
+                </p>
               </div>
             </div>
           </CardContent>

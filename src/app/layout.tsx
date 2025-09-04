@@ -22,11 +22,16 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  console.log('📐 RootLayout rendering');
+  
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <script dangerouslySetInnerHTML={{
+          __html: `console.log('🎯 Body element rendered, classes applied:', document.body.className);`
+        }} />
         {children}
       </body>
     </html>

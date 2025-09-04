@@ -1,23 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { encrypt, decrypt, Encrypted } from '@/lib/crypto'
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth'
 
 /**
  * GET handler to retrieve masked API key information for the current user
  */
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication
-    const authToken = request.cookies.get('auth-token');
-    if (!authToken || authToken.value !== 'authenticated') {
+    // Check authentication using JWT session
+    const user = await getCurrentUser()
+    if (!user) {
       return NextResponse.json(
         { error: 'Not authenticated' },
         { status: 401 }
       );
     }
 
-    // In this simplified auth model, we hardcode the admin email
-    const userEmail = 'admin@admin.com';
+    // Use the authenticated user's email
+    const userEmail = user.email;
 
     // Try to find existing API credentials for this user
     const credentials = await prisma.apiCredential.findUnique({
@@ -97,17 +98,17 @@ export async function GET(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    // Check authentication
-    const authToken = request.cookies.get('auth-token');
-    if (!authToken || authToken.value !== 'authenticated') {
+    // Check authentication using JWT session
+    const user = await getCurrentUser()
+    if (!user) {
       return NextResponse.json(
         { error: 'Not authenticated' },
         { status: 401 }
       );
     }
 
-    // In this simplified auth model, we hardcode the admin email
-    const userEmail = 'admin@admin.com';
+    // Use the authenticated user's email
+    const userEmail = user.email;
 
     // Parse request body
     const body = await request.json();

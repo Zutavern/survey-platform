@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Key, Save, X, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Key, Save, X, Eye, EyeOff, AlertCircle, CheckCircle2, Info } from 'lucide-react'
 
 type ApiKeyStatus = {
   present: boolean
@@ -38,7 +38,7 @@ export default function ApiKeysPage() {
   // Loading and status states
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [status, setStatus] = useState<{ type: 'success' | 'error' | 'none', message: string }>({
+  const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info' | 'none', message: string }>({
     type: 'none',
     message: ''
   })
@@ -59,6 +59,19 @@ export default function ApiKeysPage() {
       
       const data = await response.json()
       setApiKeys(data)
+      
+      // Show toast notification if no API keys are configured
+      if (!data.tally.present && !data.openai.present) {
+        setStatus({
+          type: 'info',
+          message: 'Keine API-Schlüssel konfiguriert. Bitte fügen Sie Ihre Tally und OpenAI API-Schlüssel hinzu, um alle Funktionen zu nutzen.'
+        })
+        
+        // Auto-dismiss after 8 seconds for info messages
+        setTimeout(() => {
+          setStatus({ type: 'none', message: '' })
+        }, 8000)
+      }
     } catch (error) {
       console.error('Error fetching API keys:', error)
       setStatus({
@@ -249,10 +262,13 @@ export default function ApiKeysPage() {
           {status.type !== 'none' && (
             <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
               status.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 
+              status.type === 'info' ? 'bg-blue-50 text-blue-800 border border-blue-200' :
               'bg-red-50 text-red-800 border border-red-200'
             }`}>
               {status.type === 'success' ? 
                 <CheckCircle2 className="w-5 h-5 text-green-600" /> : 
+                status.type === 'info' ?
+                <Info className="w-5 h-5 text-blue-600" /> :
                 <AlertCircle className="w-5 h-5 text-red-600" />
               }
               <p>{status.message}</p>

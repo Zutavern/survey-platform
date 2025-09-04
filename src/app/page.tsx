@@ -7,23 +7,33 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
+    console.log('🏠 HomePage mounted, checking authentication...');
+    
     // Check if user is authenticated
     const checkAuth = async () => {
       try {
+        console.log('🔐 Making auth check request to /api/auth/check');
         const response = await fetch('/api/auth/check', {
           method: 'GET',
           credentials: 'include',
         });
 
+        console.log('📡 Auth check response:', {
+          status: response.status,
+          ok: response.ok,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+
         if (response.ok) {
-          // User is authenticated, redirect to dashboard
+          console.log('✅ User is authenticated, redirecting to dashboard');
           router.push('/dashboard');
         } else {
-          // User is not authenticated, redirect to login
+          console.log('❌ User not authenticated, redirecting to login');
           router.push('/login');
         }
       } catch (error) {
-        // On error, redirect to login
+        console.error('🚨 Auth check error:', error);
+        console.log('⚠️ Falling back to login page');
         router.push('/login');
       }
     };

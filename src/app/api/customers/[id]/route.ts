@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { customerStorage } from '@/lib/customerStorage'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(
   request: NextRequest,
@@ -8,13 +8,31 @@ export async function GET(
   const { id } = await params
   
   try {
-    const customer = customerStorage.getCustomer(id)
+    const customer = await prisma.customer.findUnique({
+      where: { id },
+      include: {
+        additionalContacts: true,
+        assignedSurveys: true
+      }
+    })
     
     if (!customer) {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
     }
 
-    return NextResponse.json(customer)
+    // Transform to match expected format
+    const transformedCustomer = {
+      ...customer,
+      primaryContact: {
+        firstName: customer.primaryContactFirstName,
+        lastName: customer.primaryContactLastName,
+        role: customer.primaryContactRole,
+        email: customer.primaryContactEmail,
+        phone: customer.primaryContactPhone
+      }
+    }
+
+    return NextResponse.json(transformedCustomer)
   } catch (error) {
     console.error('Error fetching customer:', error)
     return NextResponse.json({ error: 'Failed to fetch customer' }, { status: 500 })
@@ -62,11 +80,17 @@ export async function DELETE(
   const { id } = await params
   
   try {
-    const deleted = customerStorage.deleteCustomer(id)
+    const customer = await prisma.customer.findUnique({
+      where: { id }
+    })
     
-    if (!deleted) {
+    if (!customer) {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
     }
+
+    await prisma.customer.delete({
+      where: { id }
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

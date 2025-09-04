@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { 
   Building2, 
   FileText, 
@@ -13,7 +13,9 @@ import {
   X,
   Plus,
   Settings,
-  BarChart3
+  BarChart3,
+  LogOut,
+  User
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -95,7 +97,45 @@ interface NavigationProps {
 export function Navigation({ customerCount = 0, surveyCount = 0 }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [expandedItems, setExpandedItems] = useState<string[]>([])
+  const [currentUser, setCurrentUser] = useState<{email: string, role: string} | null>(null)
+  const [loggingOut, setLoggingOut] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
+
+  useEffect(() => {
+    fetchCurrentUser()
+  }, [])
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/check')
+      if (response.ok) {
+        const data = await response.json()
+        setCurrentUser(data.user)
+      }
+    } catch (error) {
+      console.error('Error fetching current user:', error)
+    }
+  }
+
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      })
+      
+      if (response.ok) {
+        router.push('/login')
+        router.refresh()
+      }
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      setLoggingOut(false)
+    }
+  }
 
   const toggleExpanded = (href: string) => {
     setExpandedItems(prev => 
@@ -226,16 +266,47 @@ export function Navigation({ customerCount = 0, surveyCount = 0 }: NavigationPro
             })}
           </nav>
 
-          {/* Footer */}
-          <div className="p-6 border-t border-slate-200/50">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-slate-100 rounded-full">
-                <Settings className="w-4 h-4 text-slate-600" />
+          {/* User Footer */}
+          <div className="p-6 border-t border-slate-200/50 space-y-4">
+            {/* Current User */}
+            {currentUser && (
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                <div className="p-2 bg-blue-100 rounded-full">
+                  <User className="w-4 h-4 text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900 truncate">
+                    {currentUser.email}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    {currentUser.role === 'ADMIN' ? 'Administrator' : 'Benutzer'}
+                  </p>
+                </div>
               </div>
-              <div className="text-xs text-slate-600">
-                <p>Survey Management</p>
-                <p className="text-slate-500">v1.0.0</p>
-              </div>
+            )}
+            
+            {/* Logout Button */}
+            <Button
+              variant="outline"
+              className="w-full text-slate-700 hover:text-red-600 hover:border-red-300"
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
+              {loggingOut ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-400 mr-2"></div>
+                  Abmelden...
+                </div>
+              ) : (
+                <>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Abmelden
+                </>
+              )}
+            </Button>
+            
+            <div className="text-xs text-center text-slate-500">
+              Survey Management v1.0.0
             </div>
           </div>
         </div>
@@ -338,6 +409,46 @@ export function Navigation({ customerCount = 0, surveyCount = 0 }: NavigationPro
                     )
                   })}
                 </nav>
+              </div>
+
+              {/* Mobile User Footer */}
+              <div className="px-6 py-4 border-t border-slate-200 space-y-4">
+                {/* Current User */}
+                {currentUser && (
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                    <div className="p-2 bg-blue-100 rounded-full">
+                      <User className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {currentUser.email}
+                      </p>
+                      <p className="text-xs text-slate-600">
+                        {currentUser.role === 'ADMIN' ? 'Administrator' : 'Benutzer'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Mobile Logout Button */}
+                <Button
+                  variant="outline"
+                  className="w-full text-slate-700 hover:text-red-600 hover:border-red-300"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                >
+                  {loggingOut ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-400 mr-2"></div>
+                      Abmelden...
+                    </div>
+                  ) : (
+                    <>
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Abmelden
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </div>
