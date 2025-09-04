@@ -148,10 +148,28 @@ export async function GET() {
       })
     );
 
-    // Cache the forms list
-    tallyCacheService.setFormData('forms-list', tallyForms);
+    // Merge in locally stored mock forms (e.g., AI-generated fallback) for dev/demo
+    const mockFormsRaw = mockStorage.getAllForms();
+    const mockForms = (mockFormsRaw || []).map((f: any) => ({
+      id: f.id,
+      title: f.title,
+      description: f.description || '',
+      status: f.status || 'draft',
+      url: f.id.startsWith('form-') ? undefined : `https://tally.so/r/${f.id}`,
+      createdAt: f.createdAt,
+      updatedAt: f.updatedAt,
+      responses: 0,
+      views: 0,
+      questions: f.questions || [],
+      source: 'local'
+    }));
 
-    return NextResponse.json(tallyForms)
+    const combined = [...tallyForms, ...mockForms];
+
+    // Cache the forms list
+    tallyCacheService.setFormData('forms-list', combined);
+
+    return NextResponse.json(combined)
   } catch (error) {
     console.error('❌ Error fetching Tally forms:', error)
     
@@ -259,6 +277,8 @@ export async function POST(request: NextRequest) {
       if (response.ok) {
         const data = JSON.parse(responseText)
         console.log('✅ Form successfully created in Tally!')
+        // Invalidate cache so next GET returns fresh list including the new form
+        tallyCacheService.clearAll()
         return NextResponse.json({
           success: true,
           form: {
@@ -295,6 +315,8 @@ export async function POST(request: NextRequest) {
 
     // Save to mock storage
     const savedForm = mockStorage.saveForm(newForm)
+    // Invalidate cache to include the newly saved local form in subsequent GET
+    tallyCacheService.clearAll()
 
     return NextResponse.json({
       success: true,
