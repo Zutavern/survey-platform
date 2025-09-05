@@ -23,6 +23,14 @@ interface DeleteConfirmationDialogProps {
   variant?: 'destructive' | 'warning'
   itemName?: string
   itemCount?: number
+  itemType?: string
+  details?: {
+    formDefinition?: number
+    formFields?: number
+    formSubmissions?: number
+    formAnswers?: number
+    analyses?: number
+  }
 }
 
 export function DeleteConfirmationDialog({
@@ -36,7 +44,9 @@ export function DeleteConfirmationDialog({
   isLoading = false,
   variant = 'destructive',
   itemName,
-  itemCount
+  itemCount,
+  itemType = 'Element',
+  details
 }: DeleteConfirmationDialogProps) {
   const handleConfirm = async () => {
     try {
@@ -75,11 +85,51 @@ export function DeleteConfirmationDialog({
             <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
               <p className="text-sm font-medium text-slate-900">
                 {itemCount && itemCount > 1 ? (
-                  `${itemCount} Elemente werden gelöscht`
+                  `${itemCount} ${itemType} werden gelöscht`
                 ) : (
-                  `Zu löschendes Element: ${itemName}`
+                  `${itemType}: ${itemName}`
                 )}
               </p>
+            </div>
+          )}
+
+          {details && (
+            <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <h4 className="text-sm font-medium text-slate-900 mb-3">
+                Folgende Daten werden gelöscht:
+              </h4>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {details.formDefinition !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Formulardefinition:</span>
+                    <span className="font-medium text-slate-900">{details.formDefinition}</span>
+                  </div>
+                )}
+                {details.formFields !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Formularfelder:</span>
+                    <span className="font-medium text-slate-900">{details.formFields}</span>
+                  </div>
+                )}
+                {details.formSubmissions !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Submissions:</span>
+                    <span className="font-medium text-slate-900">{details.formSubmissions}</span>
+                  </div>
+                )}
+                {details.formAnswers !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Antworten:</span>
+                    <span className="font-medium text-slate-900">{details.formAnswers}</span>
+                  </div>
+                )}
+                {details.analyses !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">AI-Analysen:</span>
+                    <span className="font-medium text-slate-900">{details.analyses}</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
           

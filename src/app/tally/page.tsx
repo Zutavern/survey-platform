@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ErrorBoundary, DashboardErrorFallback } from '@/components/ui/error-boundary';
+import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog';
 import { 
   Plus, 
   Eye, 
@@ -51,6 +52,15 @@ export default function TallyDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft' | 'closed'>('all');
+  
+  // Delete dialog state
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    formId?: string;
+    formTitle?: string;
+    formSource?: string;
+    isDeleting?: boolean;
+  }>({ open: false });
 
   useEffect(() => {
     fetchTallyForms();
@@ -109,36 +119,47 @@ export default function TallyDashboard() {
     }
   };
 
-  const handleDeleteForm = async (formId: string, formTitle: string, formSource: string) => {
-    const sourceText = formSource === 'database' ? 'lokales/AI-generiertes' : 
-                      formSource === 'tally' ? 'Tally' : 'lokales';
-    
-    if (confirm(`Möchten Sie das ${sourceText} Formular "${formTitle}" wirklich löschen?\n\nDies wird auch alle zugehörigen Daten aus der Datenbank entfernen (Felder, Submissions, Antworten und Analysen).`)) {
-      try {
-        const response = await fetch(`/api/tally/forms/${formId}`, {
-          method: 'DELETE',
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        // Remove from local state
-        setForms(forms.filter(form => form.id !== formId));
-        
-        // Show success message with details
-        if (result.deletedRecords) {
-          console.log('🗑️ Gelöscht:', result.deletedRecords);
-          alert(`Formular erfolgreich gelöscht!\n\nGelöschte Datensätze:\n- Formulardefinition: ${result.deletedRecords.formDefinition}\n- Formularfelder: ${result.deletedRecords.formFields}\n- Submissions: ${result.deletedRecords.formSubmissions}\n- Antworten: ${result.deletedRecords.formAnswers}\n- AI-Analysen: ${result.deletedRecords.analyses}`);
-        } else {
-          alert(result.message || 'Formular erfolgreich gelöscht!');
-        }
-      } catch (err) {
-        console.error('Error deleting form:', err);
-        alert('Fehler beim Löschen des Formulars');
+  const handleDeleteForm = (formId: string, formTitle: string, formSource: string) => {
+    setDeleteDialog({
+      open: true,
+      formId,
+      formTitle,
+      formSource,
+      isDeleting: false
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteDialog.formId) return;
+
+    setDeleteDialog(prev => ({ ...prev, isDeleting: true }));
+
+    try {
+      const response = await fetch(`/api/tally/forms/${deleteDialog.formId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
+      const result = await response.json();
+      
+      // Remove from local state
+      setForms(forms.filter(form => form.id !== deleteDialog.formId));
+      
+      // Close dialog
+      setDeleteDialog({ open: false });
+      
+      // Show success message - could be enhanced to use a toast instead of alert
+      if (result.deletedRecords) {
+        console.log('🗑️ Gelöscht:', result.deletedRecords);
+      }
+    } catch (err) {
+      console.error('Error deleting form:', err);
+      alert('Fehler beim Löschen des Formulars');
+    } finally {
+      setDeleteDialog(prev => ({ ...prev, isDeleting: false }));
     }
   };
 
@@ -614,6 +635,22 @@ export default function TallyDashboard() {
         )}
       </div>
     </div>
+
+    {/* Delete Confirmation Dialog */}
+    <DeleteConfirmationDialog
+      open={deleteDialog.open}
+      onOpenChange={(open) => setDeleteDialog({ open })}
+      onConfirm={handleConfirmDelete}
+      title="Formular löschen?"
+      description={`Möchten Sie das ${
+        deleteDialog.formSource === 'database' ? 'AI-generierte lokale' : 
+        deleteDialog.formSource === 'tally' ? 'Tally' : 'lokale'
+      } Formular wirklich löschen? Alle zugehörigen Daten werden dauerhaft entfernt.`}
+      itemName={deleteDialog.formTitle}
+      itemType="Formular"
+      isLoading={deleteDialog.isDeleting}
+      confirmText="Formular löschen"
+    />
     </ErrorBoundary>
   );
 }

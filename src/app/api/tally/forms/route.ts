@@ -13,11 +13,16 @@ const TALLY_API_BASE = 'https://api.tally.so'
 // Input validation schemas
 const questionSchema = z.object({
   title: z.string().min(1, 'Question title is required').max(200, 'Title too long'),
-  type: z.enum(['text', 'email', 'radio', 'checkbox', 'textarea', 'rating', 'scale', 'date', 'file']),
+  type: z.enum(['text', 'email', 'radio', 'checkbox', 'textarea', 'rating', 'scale', 'date', 'file', 'file_upload']),
   description: z.string().max(1000, 'Description too long').optional(),
   required: z.boolean().default(false),
   options: z.array(z.string().min(1).max(100)).optional(),
-  order: z.number().int().positive().optional()
+  order: z.number().int().positive().optional(),
+  fileUpload: z.object({
+    allowedTypes: z.array(z.string()).optional(),
+    maxFileSize: z.number().positive().max(100).optional(), // Max 100MB
+    multiple: z.boolean().optional()
+  }).optional()
 })
 
 const createFormSchema = z.object({
@@ -304,6 +309,10 @@ export async function POST(request: NextRequest) {
                          question.type === 'radio' ? 'MULTIPLE_CHOICE' :
                          question.type === 'checkbox' ? 'CHECKBOXES' :
                          question.type === 'rating' ? 'LINEAR_SCALE' :
+                         question.type === 'file_upload' ? 'UPLOAD_FILE' :
+                         question.type === 'file' ? 'UPLOAD_FILE' :
+                         question.type === 'date' ? 'INPUT_DATE' :
+                         question.type === 'scale' ? 'LINEAR_SCALE' :
                          'INPUT_TEXT';
         
         const inputBlock = {
@@ -332,6 +341,11 @@ export async function POST(request: NextRequest) {
             ...(inputType === 'TEXTAREA' && {
               hasDefaultAnswer: false,
               placeholder: question.description || ""
+            }),
+            ...(inputType === 'UPLOAD_FILE' && {
+              allowedFileTypes: question.fileUpload?.allowedTypes || ['pdf', 'doc', 'docx', 'jpg', 'png'],
+              maxFileSize: question.fileUpload?.maxFileSize || 10,
+              multipleFiles: question.fileUpload?.multiple || false
             })
           }
         };
@@ -383,7 +397,10 @@ export async function POST(request: NextRequest) {
             type: q.type ?? 'text',
             required: Boolean(q.required),
             order: typeof q.order === 'number' ? q.order : idx + 1,
-            options: q.options ? q.options : undefined,
+            options: q.options || q.fileUpload ? { 
+              ...(q.options && { options: q.options }),
+              ...(q.fileUpload && { fileUpload: q.fileUpload })
+            } : undefined,
           }))
 
           if (fields.length > 0) {
@@ -456,7 +473,10 @@ export async function POST(request: NextRequest) {
         type: q.type ?? 'text',
         required: Boolean(q.required),
         order: typeof q.order === 'number' ? q.order : idx + 1,
-        options: q.options ? q.options : undefined,
+        options: q.options || q.fileUpload ? { 
+          ...(q.options && { options: q.options }),
+          ...(q.fileUpload && { fileUpload: q.fileUpload })
+        } : undefined,
       }))
 
       if (fields.length > 0) {
