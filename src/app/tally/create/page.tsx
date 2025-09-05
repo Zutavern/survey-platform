@@ -156,7 +156,7 @@ const formTemplates: FormTemplate[] = [
 
 export default function CreateTallyForm() {
   const router = useRouter();
-  const [step, setStep] = useState<'template' | 'custom'>('template');
+  const [step, setStep] = useState<'template' | 'ai' | 'custom'>('template');
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [customForm, setCustomForm] = useState({
     title: '',
@@ -272,25 +272,37 @@ export default function CreateTallyForm() {
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-1.5 shadow-lg border border-slate-200">
             <button
               onClick={() => setStep('template')}
-              className={`px-8 py-4 rounded-xl transition-all duration-300 font-medium ${
+              className={`px-6 py-4 rounded-xl transition-all duration-300 font-medium ${
                 step === 'template' 
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25' 
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
-              <Wand2 className="h-5 w-5 inline mr-3" />
-              Aus Vorlage erstellen
+              <Wand2 className="h-5 w-5 inline mr-2" />
+              Aus Vorlage
               {step === 'template' && <CheckCircle className="h-4 w-4 inline ml-2" />}
             </button>
             <button
-              onClick={() => setStep('custom')}
-              className={`px-8 py-4 rounded-xl transition-all duration-300 font-medium ${
-                step === 'custom' 
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25' 
+              onClick={() => setStep('ai')}
+              className={`px-6 py-4 rounded-xl transition-all duration-300 font-medium ${
+                step === 'ai' 
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/25' 
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
-              <FileText className="h-5 w-5 inline mr-3" />
+              <Sparkles className="h-5 w-5 inline mr-2" />
+              Mit AI erstellen
+              {step === 'ai' && <CheckCircle className="h-4 w-4 inline ml-2" />}
+            </button>
+            <button
+              onClick={() => setStep('custom')}
+              className={`px-6 py-4 rounded-xl transition-all duration-300 font-medium ${
+                step === 'custom' 
+                  ? 'bg-gradient-to-r from-slate-600 to-slate-700 text-white shadow-lg shadow-slate-500/25' 
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <FileText className="h-5 w-5 inline mr-2" />
               Leeres Formular
               {step === 'custom' && <CheckCircle className="h-4 w-4 inline ml-2" />}
             </button>
@@ -406,6 +418,88 @@ export default function CreateTallyForm() {
                 </Card>
               ))}
             </div>
+          </div>
+        ) : step === 'ai' ? (
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-10">
+              <h2 className="text-2xl font-bold text-slate-900 mb-3">
+                KI-gestütztes Formular erstellen
+              </h2>
+              <p className="text-slate-600 max-w-2xl mx-auto">
+                Beschreiben Sie Ihr gewünschtes Formular und lassen Sie es von unserer KI automatisch erstellen
+              </p>
+            </div>
+
+            <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl">
+              <CardHeader className="text-center pb-6">
+                <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Sparkles className="h-10 w-10 text-white" />
+                </div>
+                <CardTitle className="text-2xl text-slate-900 mb-3">
+                  AI Form Generator
+                </CardTitle>
+                <CardDescription className="text-slate-600 text-lg">
+                  Professionelle Formulare in Sekundenschnelle mit künstlicher Intelligenz erstellen
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent className="space-y-8">
+                <div className="text-center">
+                  <Link href="/tally/ai-create">
+                    <Button 
+                      size="lg"
+                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 py-4 px-8 text-lg font-medium shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      <Sparkles className="mr-3 h-6 w-6" />
+                      Jetzt mit AI erstellen
+                    </Button>
+                  </Link>
+                  
+                  <p className="text-sm text-slate-500 mt-4 flex items-center justify-center">
+                    <Clock className="h-4 w-4 mr-2" />
+                    Fertig in unter 2 Minuten
+                  </p>
+                </div>
+
+                {/* AI Features */}
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6">
+                  <h3 className="font-semibold text-slate-900 mb-4 flex items-center">
+                    <Sparkles className="h-5 w-5 mr-2 text-purple-600" />
+                    KI-gestützte Features
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-start space-x-3">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full mt-2"></div>
+                      <div>
+                        <p className="font-medium text-slate-800">Intelligente Fragenvorschläge</p>
+                        <p className="text-sm text-slate-600">Automatisch optimierte Fragestellungen</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <div className="w-2 h-2 bg-pink-500 rounded-full mt-2"></div>
+                      <div>
+                        <p className="font-medium text-slate-800">Antworttypen-Optimierung</p>
+                        <p className="text-sm text-slate-600">Passende Eingabefelder automatisch</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <div className="w-2 h-2 bg-indigo-500 rounded-full mt-2"></div>
+                      <div>
+                        <p className="font-medium text-slate-800">Struktur-Vorschläge</p>
+                        <p className="text-sm text-slate-600">Logische Fragenreihenfolge</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                      <div>
+                        <p className="font-medium text-slate-800">Validierungsregeln</p>
+                        <p className="text-sm text-slate-600">Automatische Eingabeprüfung</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         ) : (
           <div className="max-w-3xl mx-auto">
