@@ -13,16 +13,25 @@ const TALLY_API_BASE = 'https://api.tally.so'
 // Input validation schemas
 const questionSchema = z.object({
   title: z.string().min(1, 'Question title is required').max(200, 'Title too long'),
-  type: z.enum(['text', 'email', 'radio', 'checkbox', 'textarea', 'rating', 'scale', 'date', 'file', 'file_upload']),
+  type: z.enum(['text', 'email', 'phone', 'radio', 'checkbox', 'select', 'textarea', 'rating', 'scale', 'date', 'file', 'file_upload']),
   description: z.string().max(1000, 'Description too long').optional(),
   required: z.boolean().default(false),
   options: z.array(z.string().min(1).max(100)).optional(),
-  order: z.number().int().positive().optional(),
+  order: z.number().int().min(0).optional(),
+  placeholder: z.string().max(200).optional(),
+  // File upload configuration
   fileUpload: z.object({
     allowedTypes: z.array(z.string()).optional(),
     maxFileSize: z.number().positive().max(100).optional(), // Max 100MB
     multiple: z.boolean().optional()
-  }).optional()
+  }).optional(),
+  // Additional fields from AI generation
+  validation: z.record(z.any()).optional(),
+  ratingScale: z.record(z.any()).optional(),
+  dateTime: z.record(z.any()).optional(),
+  matrix: z.record(z.any()).optional(),
+  conditionalLogic: z.record(z.any()).optional(),
+  payment: z.record(z.any()).optional()
 })
 
 const createFormSchema = z.object({
@@ -305,14 +314,16 @@ export async function POST(request: NextRequest) {
         // Create input block
         const inputType = question.type === 'text' ? 'INPUT_TEXT' : 
                          question.type === 'email' ? 'INPUT_EMAIL' :
+                         question.type === 'phone' ? 'INPUT_PHONE' :
                          question.type === 'textarea' ? 'TEXTAREA' :
                          question.type === 'radio' ? 'MULTIPLE_CHOICE' :
                          question.type === 'checkbox' ? 'CHECKBOXES' :
+                         question.type === 'select' ? 'DROPDOWN' :
                          question.type === 'rating' ? 'LINEAR_SCALE' :
+                         question.type === 'scale' ? 'LINEAR_SCALE' :
                          question.type === 'file_upload' ? 'UPLOAD_FILE' :
                          question.type === 'file' ? 'UPLOAD_FILE' :
                          question.type === 'date' ? 'INPUT_DATE' :
-                         question.type === 'scale' ? 'LINEAR_SCALE' :
                          'INPUT_TEXT';
         
         const inputBlock = {
@@ -390,18 +401,29 @@ export async function POST(request: NextRequest) {
               .replace(/[^a-z0-9]+/g, '_')
               .replace(/^_|_$/g, '') || `field_${idx + 1}`
 
-          const fields = (body.questions || []).map((q: any, idx: number) => ({
-            formId: createdDef.id,
-            key: toKey(q.title, idx),
-            label: q.title ?? `Frage ${idx + 1}`,
-            type: q.type ?? 'text',
-            required: Boolean(q.required),
-            order: typeof q.order === 'number' ? q.order : idx + 1,
-            options: q.options || q.fileUpload ? { 
-              ...(q.options && { options: q.options }),
-              ...(q.fileUpload && { fileUpload: q.fileUpload })
-            } : undefined,
-          }))
+          const fields = (body.questions || []).map((q: any, idx: number) => {
+            // Build options object with all additional configurations
+            const options: any = {}
+            if (q.options) options.options = q.options
+            if (q.fileUpload) options.fileUpload = q.fileUpload
+            if (q.validation) options.validation = q.validation
+            if (q.ratingScale) options.ratingScale = q.ratingScale
+            if (q.dateTime) options.dateTime = q.dateTime
+            if (q.matrix) options.matrix = q.matrix
+            if (q.conditionalLogic) options.conditionalLogic = q.conditionalLogic
+            if (q.payment) options.payment = q.payment
+            if (q.placeholder) options.placeholder = q.placeholder
+
+            return {
+              formId: createdDef.id,
+              key: toKey(q.title, idx),
+              label: q.title ?? `Frage ${idx + 1}`,
+              type: q.type ?? 'text',
+              required: Boolean(q.required),
+              order: typeof q.order === 'number' ? q.order : idx + 1,
+              options: Object.keys(options).length > 0 ? options : undefined,
+            }
+          })
 
           if (fields.length > 0) {
             await prisma.formField.createMany({ data: fields, skipDuplicates: true })
@@ -466,18 +488,29 @@ export async function POST(request: NextRequest) {
           .replace(/[^a-z0-9]+/g, '_')
           .replace(/^_|_$/g, '') || `field_${idx + 1}`
 
-      const fields = (savedForm.questions || []).map((q: any, idx: number) => ({
-        formId: createdDef.id,
-        key: toKey(q.title, idx),
-        label: q.title ?? `Frage ${idx + 1}`,
-        type: q.type ?? 'text',
-        required: Boolean(q.required),
-        order: typeof q.order === 'number' ? q.order : idx + 1,
-        options: q.options || q.fileUpload ? { 
-          ...(q.options && { options: q.options }),
-          ...(q.fileUpload && { fileUpload: q.fileUpload })
-        } : undefined,
-      }))
+      const fields = (savedForm.questions || []).map((q: any, idx: number) => {
+        // Build options object with all additional configurations
+        const options: any = {}
+        if (q.options) options.options = q.options
+        if (q.fileUpload) options.fileUpload = q.fileUpload
+        if (q.validation) options.validation = q.validation
+        if (q.ratingScale) options.ratingScale = q.ratingScale
+        if (q.dateTime) options.dateTime = q.dateTime
+        if (q.matrix) options.matrix = q.matrix
+        if (q.conditionalLogic) options.conditionalLogic = q.conditionalLogic
+        if (q.payment) options.payment = q.payment
+        if (q.placeholder) options.placeholder = q.placeholder
+
+        return {
+          formId: createdDef.id,
+          key: toKey(q.title, idx),
+          label: q.title ?? `Frage ${idx + 1}`,
+          type: q.type ?? 'text',
+          required: Boolean(q.required),
+          order: typeof q.order === 'number' ? q.order : idx + 1,
+          options: Object.keys(options).length > 0 ? options : undefined,
+        }
+      })
 
       if (fields.length > 0) {
         await prisma.formField.createMany({ data: fields, skipDuplicates: true })
