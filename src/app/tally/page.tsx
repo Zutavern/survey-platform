@@ -204,11 +204,11 @@ export default function TallyDashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link 
-                href="/" 
+                href="/dashboard" 
                 className="text-slate-600 hover:text-slate-900 transition-colors inline-flex items-center"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Zurück
+                Zurück zum Dashboard
               </Link>
               
               <div className="w-px h-6 bg-slate-300"></div>
