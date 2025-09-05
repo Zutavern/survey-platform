@@ -173,7 +173,7 @@ export default function AIFormCreator() {
       });
 
       if (response.ok) {
-        router.push('/tally');
+        router.push('/tally?refresh=true');
       } else {
         throw new Error('Fehler beim Speichern des Formulars');
       }

@@ -109,8 +109,8 @@ export default function EditTallyForm() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      // Redirect back to dashboard
-      router.push('/tally');
+      // Redirect back to dashboard with refresh
+      router.push('/tally?refresh=true');
     } catch (err) {
       setError('Fehler beim Speichern des Formulars');
       console.error('Error saving form:', err);

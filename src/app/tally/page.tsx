@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,8 @@ interface TallyForm {
 }
 
 export default function TallyDashboard() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [forms, setForms] = useState<TallyForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +67,44 @@ export default function TallyDashboard() {
 
   useEffect(() => {
     fetchTallyForms();
+  }, []);
+
+  // Refetch forms when returning from form creation (via URL param)
+  useEffect(() => {
+    const refresh = searchParams.get('refresh');
+    if (refresh === 'true') {
+      console.log('🔄 Refresh requested via URL param, refetching forms...');
+      fetchTallyForms();
+      // Clean up the URL without causing a page reload
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('refresh');
+      window.history.replaceState({}, '', newUrl.toString());
+    }
+  }, [searchParams]);
+
+  // Refetch forms when page regains focus (user returns from form creation)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('🔄 Page regained focus, refetching forms...');
+      fetchTallyForms();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('🔄 Page became visible, refetching forms...');
+        fetchTallyForms();
+      }
+    };
+
+    // Listen for window focus events
+    window.addEventListener('focus', handleFocus);
+    // Listen for visibility change events (tab switching)
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const fetchTallyForms = async () => {
